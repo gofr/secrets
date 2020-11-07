@@ -5,47 +5,8 @@
 <meta property="og:title" content="{{TITLE}}">
 <meta property="og:image" content="{{THUMBNAIL}}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="../favicon.ico">
-<script>
-let rootURL = document.head.querySelector(
-    'meta[property="og:url"]').getAttribute('content');
-let root = '/secret_test/';
-let host = rootURL.substring(0, rootURL.lastIndexOf(root));
-
-if (!location.href.startsWith(host)) {
-    let rootPosition = location.pathname.indexOf(root);
-    if (rootPosition != -1) {
-        location = host + location.pathname.substr(rootPosition) + location.hash;
-    } else {
-        location = host;
-    }
-}
-let key = sessionStorage.getItem('key');
-if (!key) {
-    key = location.hash.substr(1);
-    sessionStorage.setItem('key', key);
-}
-sessionStorage.setItem('dir', location.pathname.substring(
-    location.pathname.lastIndexOf(root) + root.length));
-let metaTitle = document.head.querySelector('meta[property="og:title"]');
-let title = '';
-if (metaTitle) {
-    title = metaTitle.textContents;
-    titleElement = document.createElement('title');
-    titleElement.textContents = title;
-    document.head.appendChild(titleElement);
-}
-</script>
-<script src="../decrypt.js"></script>
-<script>
-// history.replaceState({}, '', `${rootURL}#${encodeURIComponent(title)}`);
-addEventListener('load', () => {
-    decryptContent(key, 'content').then(
-        (value) => {
-            document.body.appendChild(value);
-        });
-})
-</script>
+<script src="../load.js"></script>
+<script src="../decrypt.js" defer></script>
+<link href="../style.css" rel="stylesheet">
+<link href="../favicon.ico" rel="icon">
 </head>
-<body>
-</body>
