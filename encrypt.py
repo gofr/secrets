@@ -42,12 +42,6 @@ def encrypt(data, key, output_file):
     with open(output_file, 'wb') as output_object:
         output_object.write(
             nonce + aesgcm.encrypt(nonce, data, None))
-    with open(output_file, 'rb') as f:
-        data = f.read()
-        if data is None:
-            print('nothing!')
-        else:
-            print(len(data))
 
 
 def downsize(old_size, new_size):
@@ -132,9 +126,6 @@ def package(
 
     if key is None:
         key = AESGCM.generate_key(bit_length=128)
-    # TODO: Verify that input is CommonMark, process it, encrypt images
-    # referenced in it separately, add the text to a template HTML file and
-    # then encrypt that as index.html.
     with open(input_file) as cm:
         text_content = cm.read()
     parser = commonmark.Parser()
