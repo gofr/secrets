@@ -29,7 +29,7 @@ async function fetchEncryptedData(url) {
     }
 }
 async function decryptContent(base64key, url) {
-    const content = await decryptToText(base64key, await fetchEncryptedData(url).data);
+    const content = await decryptToText(base64key, (await fetchEncryptedData(url)).data);
     let container = document.createElement('article');
     container.innerHTML = content;
     for (let image of container.querySelectorAll('img')) {
