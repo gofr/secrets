@@ -32,6 +32,11 @@ async function decryptContent(base64key, url) {
     const content = await decryptToText(base64key, (await fetchEncryptedData(url)).data);
     let container = document.createElement('article');
     container.innerHTML = content;
+    // TODO: Don't download images twice. Now they're first loaded by the
+    // browser as the img is parsed, and then again when I fetch it here.
+    // It's probably not possible to access the data from the encrypted image
+    // that failed to decode. Put the URL in a data attribute so it's only
+    // fetched for decryption.
     for (let image of container.querySelectorAll('img')) {
         image.addEventListener('load', () => URL.revokeObjectURL(image.src));
         const source = await fetchEncryptedData(image.src);

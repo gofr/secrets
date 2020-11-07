@@ -130,6 +130,10 @@ def package(
         text_content = cm.read()
     parser = commonmark.Parser()
     ast = parser.parse(text_content)
+    # TODO: Probably modify the AST in some way and subclass the HTML renderer
+    # so I generate different img tags, with data attributes instead of src.
+    # Store the mime-type in a data attribute as well and drop the extension
+    # on the server?
     encrypt_images(ast, key, os.path.dirname(input_file), new_dir)
     renderer = commonmark.HtmlRenderer()
     html_content = renderer.render(ast)
