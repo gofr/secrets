@@ -9,7 +9,7 @@ import re
 
 import commonmark
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 def get_random_name():
@@ -44,33 +44,15 @@ def encrypt(data, key, output_file):
             nonce + aesgcm.encrypt(nonce, data, None))
 
 
-def downsize(old_size, new_size):
-    """Return `old_size` tuple proportionally scaled down to fit within `new_size`."""
-    # TODO: If the aspect ratio is different, scale and clip the image instead
-    # of scaling down to within the new bounding box?
-    old_width, old_height = old_size
-    new_width, new_height = new_size
-
-    if new_width >= old_width and new_height >= old_height:
-        return old_size
-    elif new_width / new_height >= old_width / old_height:
-        return (round(old_width * new_height / old_height), new_height)
-    else:
-        return (new_width, round(old_height * new_width / old_width))
-
-
-def read_image(image, size=None):
+def thumbnail(image, size):
     """Return bytes containing a resized copy of `image` as JPEG.
 
-    `size` should be a (width, height) tuple. If `size` is None or not given
-    the image is not resized, but still re-saved as JPEG.
+    `size` should be a (width, height) tuple.
     """
+    thumb = ImageOps.fit(image, size)
+    tmp = io.BytesIO()
     try:
-        img = Image.open(image)
-        if size is not None:
-            img = img.resize(downsize(img.size, size))
-        tmp = io.BytesIO()
-        img.save(tmp, 'JPEG', quality=85, progressive=True)
+        thumb.save(tmp, 'JPEG', quality=85, progressive=True)
         return tmp.getvalue()
     finally:
         tmp.close()
@@ -90,8 +72,8 @@ def encrypt_images(commonmark_ast, key, input_dir, output_dir):
             ext = os.path.splitext(current.destination)[1]
             thumb_name = get_random_name() + ext
             old_path = os.path.join(input_dir, current.destination)
-            encrypt(
-                read_image(old_path, (320, 240)), key, os.path.join(output_dir, thumb_name))
+            with Image.open(old_path) as img:
+                encrypt(thumbnail(img, (320, 180)), key, os.path.join(output_dir, thumb_name))
             current.destination = thumb_name
 
 
