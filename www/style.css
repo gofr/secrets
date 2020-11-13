@@ -2,3 +2,6 @@ body {
     margin: 1em auto;
     max-width: 40em;
 }
+article img {
+    background: hsl(0,0%,90%) url(padlock.svg) center no-repeat;
+}
