@@ -86,6 +86,24 @@ def thumbnail(image, size):
         tmp.close()
 
 
+def get_clean_image_data(image):
+    """Return (cleaned-up) bytes given a PIL.Image object of a JPEG image.
+
+    If the image object was a JPEG file, return the image data losslessly
+    converted to progressive and with EXIF metadata dropped.
+
+    Otherwise, raise a TypeError.
+    """
+    if image.format != 'JPEG':
+        raise TypeError('Only JPEG images are supported')
+    tmp = io.BytesIO()
+    try:
+        image.save(tmp, format='JPEG', quality='keep', progressive=True)
+        return tmp.getvalue()
+    finally:
+        tmp.close()
+
+
 def encrypt_images(commonmark_ast, key, input_dir, output_dir):
     """Encrypt images mentioned in `commonmark_ast` and update the AST.
 
@@ -95,17 +113,22 @@ def encrypt_images(commonmark_ast, key, input_dir, output_dir):
     extension in `output_dir`.
     """
     for current, entering in commonmark_ast.walker():
-        # Absolute and scheme-relative URLs contain "//". Ignore those.
-        if current.t == 'image' and entering and '//' not in current.destination:
+        # Absolute URLs contain ":". Ignore those.
+        if current.t == 'image' and entering and ':' not in current.destination:
+            old_path = os.path.join(input_dir, current.destination)
+            full_name = get_random_name()
             thumb_name = get_random_name()
             thumb_size = (320, 180)
-            old_path = os.path.join(input_dir, current.destination)
-            with Image.open(old_path) as img:
+            with open(old_path, 'rb') as image:
+                img = Image.open(image)
                 encrypt(thumbnail(img, thumb_size), key, os.path.join(output_dir, thumb_name))
+                encrypt(get_clean_image_data(img), key, os.path.join(output_dir, full_name))
             current.list_data = {
                 'width': str(thumb_size[0]),
                 'height': str(thumb_size[1]),
                 'data-thumbnail': thumb_name,
+                'data-src': full_name,
+                'data-type': img.get_format_mimetype()
             }
             current.destination = None
 
