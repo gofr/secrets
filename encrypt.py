@@ -8,8 +8,36 @@ import os
 import re
 
 import commonmark
+from commonmark.render.html import potentially_unsafe
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from PIL import Image, ImageOps
+
+
+class HTMLRenderer(commonmark.HtmlRenderer):
+    def tag(self, name, attrs=None, selfclosing=None):
+        # Self-closing tags don't exist in HTML:
+        super().tag(name, attrs, False)
+
+    def image(self, node, entering):
+        if entering:
+            if self.disable_tags == 0:
+                if (not node.destination or
+                        self.options.get('safe') and potentially_unsafe(node.destination)):
+                    self.lit('<img src="" alt="')
+                else:
+                    self.lit(f'<img src="{self.escape(node.destination)}" alt="')
+            self.disable_tags += 1
+        else:
+            self.disable_tags -= 1
+            if self.disable_tags == 0:
+                self.lit('"')
+                if node.list_data:
+                    self.lit(''.join([
+                        f' {attr}="{self.escape(value)}"' for attr, value in node.list_data.items()
+                    ]))
+                if node.title:
+                    self.lit(f' title="{self.escape(node.title)}"')
+                self.lit('>')
 
 
 def get_random_name():
@@ -69,12 +97,17 @@ def encrypt_images(commonmark_ast, key, input_dir, output_dir):
     for current, entering in commonmark_ast.walker():
         # Absolute and scheme-relative URLs contain "//". Ignore those.
         if current.t == 'image' and entering and '//' not in current.destination:
-            ext = os.path.splitext(current.destination)[1]
-            thumb_name = get_random_name() + ext
+            thumb_name = get_random_name()
+            thumb_size = (320, 180)
             old_path = os.path.join(input_dir, current.destination)
             with Image.open(old_path) as img:
-                encrypt(thumbnail(img, (320, 180)), key, os.path.join(output_dir, thumb_name))
-            current.destination = thumb_name
+                encrypt(thumbnail(img, thumb_size), key, os.path.join(output_dir, thumb_name))
+            current.list_data = {
+                'width': str(thumb_size[0]),
+                'height': str(thumb_size[1]),
+                'data-thumbnail': thumb_name,
+            }
+            current.destination = None
 
 
 def replace_or_remove(text, tag, replacement):
@@ -112,12 +145,8 @@ def package(
         text_content = cm.read()
     parser = commonmark.Parser()
     ast = parser.parse(text_content)
-    # TODO: Probably modify the AST in some way and subclass the HTML renderer
-    # so I generate different img tags, with data attributes instead of src.
-    # Store the mime-type in a data attribute as well and drop the extension
-    # on the server?
     encrypt_images(ast, key, os.path.dirname(input_file), new_dir)
-    renderer = commonmark.HtmlRenderer()
+    renderer = HTMLRenderer()
     html_content = renderer.render(ast)
     encrypt(html_content.encode(), key, os.path.join(new_dir, 'content'))
     write_index(new_dir, template_path, title, thumbnail)
