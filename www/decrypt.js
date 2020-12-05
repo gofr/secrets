@@ -33,10 +33,10 @@ async function decryptContent(base64key, url) {
     let container = document.createElement('article');
     container.innerHTML = content;
     for (let image of container.querySelectorAll('img')) {
-        let thumb = image.dataset['thumbnail'];
-        if (thumb) {
-            image.addEventListener('load', () => URL.revokeObjectURL(thumb));
-            const source = await fetchEncryptedData(thumb);
+        let src = image.dataset['src'];
+        if (src) {
+            image.addEventListener('load', () => URL.revokeObjectURL(src));
+            const source = await fetchEncryptedData(src);
             image.src = await decryptToObjectURL(base64key, source.data, 'image/jpeg');
         }
     }

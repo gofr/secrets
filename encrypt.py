@@ -10,7 +10,7 @@ import commonmark
 from commonmark.render.html import potentially_unsafe
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from PIL import Image, ImageOps
+from PIL import Image
 
 
 class HTMLRenderer(commonmark.HtmlRenderer):
@@ -72,20 +72,6 @@ def encrypt(data, key, output_file):
             nonce + aesgcm.encrypt(nonce, data, None))
 
 
-def thumbnail(image, size):
-    """Return bytes containing a resized copy of `image` as JPEG.
-
-    `size` should be a (width, height) tuple.
-    """
-    thumb = ImageOps.fit(image, size)
-    tmp = io.BytesIO()
-    try:
-        thumb.save(tmp, 'JPEG', quality=85, progressive=True)
-        return tmp.getvalue()
-    finally:
-        tmp.close()
-
-
 def get_clean_image_data(image):
     """Return (cleaned-up) bytes given a PIL.Image object of a JPEG image.
 
@@ -116,18 +102,14 @@ def encrypt_images(commonmark_ast, key, input_dir, output_dir):
         # Absolute URLs contain ":". Ignore those.
         if current.t == 'image' and entering and ':' not in current.destination:
             old_path = os.path.join(input_dir, current.destination)
-            full_name = get_random_name()
-            thumb_name = get_random_name()
-            thumb_size = (320, 180)
+            name = get_random_name()
             with open(old_path, 'rb') as image:
                 img = Image.open(image)
-                encrypt(thumbnail(img, thumb_size), key, os.path.join(output_dir, thumb_name))
-                encrypt(get_clean_image_data(img), key, os.path.join(output_dir, full_name))
+                encrypt(get_clean_image_data(img), key, os.path.join(output_dir, name))
             current.list_data = {
-                'width': str(thumb_size[0]),
-                'height': str(thumb_size[1]),
-                'data-thumbnail': thumb_name,
-                'data-src': full_name,
+                'width': str(img.size[0]),
+                'height': str(img.size[1]),
+                'data-src': name,
                 'data-type': img.get_format_mimetype()
             }
             current.destination = None
