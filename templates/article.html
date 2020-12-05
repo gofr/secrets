@@ -3,8 +3,12 @@
 <meta charset="utf-8">
 <meta name="robots" content="noindex, nofollow">
 <meta property="og:url" content="https://.../secret_test/">
-<meta property="og:title" content="{{TITLE}}">
-<meta property="og:image" content="{{THUMBNAIL}}">
+{% if title %}
+<meta property="og:title" content="{{ title }}">
+{% endif %}
+{% if thumbnail %}
+<meta property="og:image" content="{{ thumbnail }}">
+{% endif %}
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="../load.js"></script>
 <script src="../decrypt.js" defer></script>

@@ -5,11 +5,11 @@ import binascii
 import base64
 import io
 import os
-import re
 
 import commonmark
 from commonmark.render.html import potentially_unsafe
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image, ImageOps
 
 
@@ -133,29 +133,21 @@ def encrypt_images(commonmark_ast, key, input_dir, output_dir):
             current.destination = None
 
 
-def replace_or_remove(text, tag, replacement):
-    """Return text input with all occurrences of tag replaced by replacement.
-
-    If replacement is None, all lines containing tag are completely removed.
-    """
-    if replacement is not None:
-        out = text.replace(tag, replacement)
-    else:
-        out = re.sub(rf'.*{re.escape(tag)}.*\n', '', text)
-    return out
-
-
-def write_index(output_dir, template_path, title=None, thumbnail=None):
-    with open(template_path) as template_object:
-        template = template_object.read()
-    template = replace_or_remove(template, '{{TITLE}}', title)
-    template = replace_or_remove(template, '{{THUMBNAIL}}', thumbnail)
+def write_article(output_dir, template_dir, title=None, thumbnail=None):
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        trim_blocks=True,
+        lstrip_blocks=True,
+        autoescape=select_autoescape()
+    )
+    template = env.get_template('article.html')
     with open(os.path.join(output_dir, 'index.html'), 'w') as index_object:
-        index_object.write(template)
+        content = template.render(title=title, thumbnail=thumbnail)
+        index_object.write(content)
 
 
 def package(
-        input_file, base_dir, create_dir, template_path,
+        input_file, base_dir, create_dir, template_dir,
         title, thumbnail, key=None):
     if create_dir:
         new_dir = create_random_subdir(base_dir)
@@ -172,7 +164,7 @@ def package(
     renderer = HTMLRenderer()
     html_content = renderer.render(ast)
     encrypt(html_content.encode(), key, os.path.join(new_dir, 'content'))
-    write_index(new_dir, template_path, title, thumbnail)
+    write_article(new_dir, template_dir, title, thumbnail)
     return new_dir, key
 
 
@@ -186,8 +178,8 @@ if __name__ == '__main__':
         """)
     parser.add_argument('input', help='path to CommonMark file to encrypt')
     parser.add_argument(
-        '--template', default='./template.html', help="""\
-            path to template to use for index.html""")
+        '--template-dir', default='templates',
+        help='path to directory containing templates')
     parser.add_argument(
         '--thumbnail', help="""\
             path to image file that will be used unencrypted as a thumbnail
@@ -215,6 +207,6 @@ if __name__ == '__main__':
 
     new_dir, key = package(
         args.input, output_dir, create_dir,
-        args.template, args.title, args.thumbnail, args.key)
+        args.template_dir, args.title, args.thumbnail, args.key)
     base64key = base64.b64encode(key).decode()
     print(f'dir={new_dir}\nkey={base64key}')
