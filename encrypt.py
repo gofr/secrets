@@ -5,6 +5,7 @@ import binascii
 import base64
 import io
 import os
+import re
 
 import commonmark
 from commonmark.render.html import potentially_unsafe
@@ -38,6 +39,51 @@ class HTMLRenderer(commonmark.HtmlRenderer):
                 if node.title:
                     self.lit(f' title="{self.escape(node.title)}"')
                 self.lit('>')
+
+
+# TODO: unittest this class.
+class BlogEntry:
+    _metadata_pattern = re.compile(
+        r'^(?:(?P<key>[a-z0-9_]+): (?P<value>.+)|# .*||(?P<error>.*))$',
+        re.MULTILINE)
+
+    def __init__(self, file_path):
+        with open(file_path) as f:
+            sections = re.split(r'\n\n---$', f.read())
+
+        parsed_sections = []
+        for section in sections:
+            match = re.match(self._metadata_pattern, section)
+            if match and match.group('key'):
+                parsed_sections.append(self.parse_metadata(section))
+            else:
+                parsed_sections.append(self.parse_commonmark(section))
+        self.sections = parsed_sections
+
+    def parse_commonmark(self, content):
+        """Parse CommonMark string and return AST object."""
+        parser = commonmark.Parser()
+        # TODO: Where should the encrypting of images go? Here? It doesn't feel
+        # like loading the content file should immediately result in images
+        # being encrypted and renamed. There should probably be a separate
+        # encrypt or write step. That would also make it easier to use the same
+        # code for a blog that does not need to be encrypted.
+        return parser.parse(content)
+
+    def parse_metadata(self, content):
+        """Parse metadata string and return dict."""
+        metadata = {}
+        for match in re.finditer(self._metadata_pattern, content):
+            key = match.group('key')
+            error = match.group('error')
+            if key is not None:
+                if metadata.get(key):
+                    raise ValueError(f'Duplicate "{key}" metadata key in line:\n{match.group(0)}')
+                else:
+                    metadata[key] = match.group('value')
+            elif error:
+                raise ValueError(f'Invalid metadata in line:\n{match.group(0)}')
+        return metadata
 
 
 def get_random_name():
