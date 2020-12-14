@@ -1,7 +1,44 @@
 body {
-    margin: 1em auto;
-    max-width: 40em;
+    background: black;
+    color: white;
+    font-size: 14px;
+    line-height: 1.5em;
+    margin: 0 auto;
 }
-article img {
-    background: hsl(0,0%,90%) url(padlock.svg) center no-repeat;
+article {
+    display: flex;
+    flex-direction: column;
 }
+    article img {
+        background: hsl(0 0% 90%) url(padlock.svg) center no-repeat;
+    }
+    article .media {
+        position: sticky;
+        top: 0;
+    }
+        article .media img {
+            display: block;
+            margin: 0 auto;
+            max-height: 100vh;
+            max-width: 100%;
+        }
+    article .content {
+        background: hsl(0 0% 0% / 80%);
+        margin: 1em auto;
+        border-radius: 1.5em;
+        max-width: 40em;
+        overflow-y: auto;
+        padding: 1em;
+        position: relative;
+    }
+        article .content p:first-of-type::first-letter {
+            float: left;
+            font-size: 2.6em;
+            padding: .25em .1em 0;
+        }
+        article .content > :first-child {
+            margin-top: 0;
+        }
+        article .content > :last-child {
+            margin-bottom: 0;
+        }

@@ -1,0 +1,13 @@
+{% for section in content %}
+{% if not loop.previtem or section.image %}
+<section>
+{% endif %}
+{% if section.image %}
+    <div class="media"><img data-src="{{ section.encrypted_name }}"></div>
+{% else %}
+    <div class="content">{{ section|safe }}</div>
+{% endif %}
+{% if not loop.nextitem or loop.nextitem.image %}
+</section>
+{% endif %}
+{% endfor %}

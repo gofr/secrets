@@ -4,11 +4,11 @@ Each blog entry consists of a single text file with one or more sections separat
 
 Empty sections are ignored.
 
-Each section can be either simple key-value metadata or CommonMark.
+Each section can either be key-value data used to define media content or CommonMark.
 
-## Metadata
+## Media
 
-The section is considered metadata if the first line is a key-value pair as defined below. Otherwise it is treated as CommonMark:
+The section is considered media if the first line is a key-value pair as defined below. Otherwise it is treated as CommonMark:
 
 * Key-value pairs are lines matching the following regular expression: `/^(?<key>[a-z0-9_]+): (?<value>.+)/`.
 * Lines matching `/^# /` are considered comments and are ignored.
@@ -22,7 +22,7 @@ The following keys are recognized:
 
 <dl>
     <dt>image</dt>
-    <dd>File path to an image. If a CommonMark section immediately follows this section it is considered to be a description of or comment on this image.</dd>
+    <dd>File path to an image.</dd>
 </dl>
 
 ## CommonMark
