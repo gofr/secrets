@@ -43,19 +43,23 @@ class HTMLRenderer(commonmark.HtmlRenderer):
 
 # TODO: unittest this class.
 class Post:
-    _media_pattern = re.compile(
+    _metadata_pattern = re.compile(
         r'^(?:(?P<key>[a-z0-9_]+): (?P<value>.+)|# .*||(?P<error>.*))$',
         re.MULTILINE)
 
-    def __init__(self, file_path, title=None, thumbnail=None):
+    def __init__(self, file_path):
         with open(file_path, 'rt') as f:
             sections = re.split(r'\n\n---\n', f.read(), flags=re.MULTILINE)
 
+        metadata = {}
         parsed_sections = []
+        if sections[0].startswith('---\n'):
+            # Parse the first section, without the leading "---\n":
+            metadata = self.parse_metadata(sections.pop(0)[4:])
         for section in sections:
-            match = re.match(self._media_pattern, section)
+            match = re.match(self._metadata_pattern, section)
             if match and match.group('key'):
-                parsed_sections.append(self.parse_media(section))
+                parsed_sections.append(self.parse_metadata(section))
             elif not section.strip():
                 continue
             else:
@@ -63,28 +67,27 @@ class Post:
                 parsed_sections.append(ast)
         self.location = os.path.dirname(file_path)
         self.sections = parsed_sections
-        self.title = title
-        self.thumbnail = thumbnail
+        self.title = metadata.get('title')
 
     def parse_commonmark(self, content):
         """Parse CommonMark string and return AST object."""
         parser = commonmark.Parser()
         return parser.parse(content)
 
-    def parse_media(self, content):
-        """Parse media key-value string and return dict."""
-        media = {}
-        for match in re.finditer(self._media_pattern, content):
+    def parse_metadata(self, content):
+        """Parse key-value string and return dict."""
+        data = {}
+        for match in re.finditer(self._metadata_pattern, content):
             key = match.group('key')
             error = match.group('error')
             if key is not None:
-                if media.get(key):
+                if data.get(key):
                     raise ValueError(f'Duplicate "{key}" key name in line:\n{match.group(0)}')
                 else:
-                    media[key] = match.group('value')
+                    data[key] = match.group('value')
             elif error:
-                raise ValueError(f'Invalid media data in line:\n{match.group(0)}')
-        return media
+                raise ValueError(f'Invalid key-value data in line:\n{match.group(0)}')
+        return data
 
     # TODO: This needs a lot of cleanup:
     # * Create a separate Blog class that holds info like the template dir.
@@ -93,10 +96,6 @@ class Post:
     # * If the same image is used multiple times, don't re-encrypt it
     #   multiple times.
     # * Do I want to support images in the CommonMark at all?
-    # * Am I ever gonna use the title and thumbnail? If so, this should go in
-    #   the text file itself now that I can have key-value pairs anyway,
-    #   presumably an initial metadata section, like "YAML front matter", which
-    #   is already what my media sections are inspired by.
     def write(self, output_dir, template_dir, key):
         env = Environment(
             loader=FileSystemLoader(template_dir),
@@ -120,7 +119,7 @@ class Post:
         encrypt(content.encode(), key, os.path.join(output_dir, 'content'))
         template = env.get_template('article.html')
         with open(os.path.join(output_dir, 'index.html'), 'w') as index_file:
-            content = template.render(title=self.title, thumbnail=self.thumbnail)
+            content = template.render(title=self.title)
             index_file.write(content)
 
 
@@ -199,9 +198,7 @@ def encrypt_images(commonmark_ast, key, input_dir, output_dir):
             current.destination = None
 
 
-def package(
-        input_file, base_dir, create_dir, template_dir,
-        title, thumbnail, key=None):
+def package(input_file, base_dir, create_dir, template_dir, key=None):
     if create_dir:
         new_dir = create_random_subdir(base_dir)
     else:
@@ -209,7 +206,7 @@ def package(
 
     if key is None:
         key = AESGCM.generate_key(bit_length=128)
-    post = Post(input_file, title, thumbnail)
+    post = Post(input_file)
     post.write(new_dir, template_dir, key)
     return new_dir, key
 
@@ -226,11 +223,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--template-dir', default='templates',
         help='path to directory containing templates')
-    parser.add_argument(
-        '--thumbnail', help="""\
-            path to image file that will be used unencrypted as a thumbnail
-            for Facebook""")
-    parser.add_argument('--title', help='title to use for Facebook')
     parser.add_argument('--key', type=valid_encryption_key, help="""\
         existing base64-encoded, 128-bit encryption key to use instead of
         generating a new one""")
@@ -252,7 +244,6 @@ if __name__ == '__main__':
     create_dir = (args.output_dir is None)
 
     new_dir, key = package(
-        args.input, output_dir, create_dir,
-        args.template_dir, args.title, args.thumbnail, args.key)
+        args.input, output_dir, create_dir, args.template_dir, args.key)
     base64key = base64.b64encode(key).decode()
     print(f'dir={new_dir}\nkey={base64key}')
