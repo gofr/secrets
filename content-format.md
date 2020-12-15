@@ -38,7 +38,7 @@ Only the first section in a file starting with `/^---$/` is treated as metadata.
 
 ## CommonMark
 
-You can use any CommonMark, but beware that `---` is also valid CommonMark and will first be interpreted as a section separator if it is also preceded by a blank line. Avoid it if possible. Most simply, any occurrence of `/^---$/` can be replaced by `----`. Alternatively:
-
-* For `---` as a [setext level 2 heading](https://spec.commonmark.org/0.29/#setext-heading-underline), use the [ATX heading syntax](https://spec.commonmark.org/0.29/#atx-heading) or a different number of `-`.
-* For `---` as a [thematic break](https://spec.commonmark.org/0.29/#thematic-breaks), use different characters such as `***`, spacing like `- - -`, or a different number of `-`.
+You can use any CommonMark, however:
+* Images are stripped out. Only the [image description](https://spec.commonmark.org/0.29/#image-description) is displayed. You can use CommonMark inside that description.
+* Raw HTML is stripped out.
+* Beware that while `---` is valid CommonMark (as a [setext level 2 heading](https://spec.commonmark.org/0.29/#setext-heading-underline) or [thematic break](https://spec.commonmark.org/0.29/#thematic-breaks)), it will first be interpreted as a section separator if it is also preceded by a blank line. Avoid it if possible. Most simply, any occurrence of `/^---$/` can be replaced by `----`.

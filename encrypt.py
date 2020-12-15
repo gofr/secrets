@@ -8,37 +8,63 @@ import os
 import re
 
 import commonmark
-from commonmark.render.html import potentially_unsafe
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image
 
 
 class HTMLRenderer(commonmark.HtmlRenderer):
+    """Extra safe HTML renderer.
+
+    I'm using this in a tool where I encrypt and publish the rendered content.
+    I don't want to have to parse image tags and arbitrary HTML content nested
+    in the CommonMark to make sure they don't include extra content that would
+    need including and encrypting. Even including external content like images
+    potentially leaks information.
+
+    When the "safe" option is set to True:
+    * don't render HTML content at all and
+    * render only the alt text of images, but do render CommonMark nested in
+      that alt text in this case.
+
+    Safe mode is the default.
+
+    While I'm at it, get rid of obsolete, self-closing tag syntax.
+    """
+    def __init__(self, options=None):
+        options = options or {}
+        options.setdefault('safe', True)
+        super().__init__(options)
+
     def tag(self, name, attrs=None, selfclosing=None):
         # Self-closing tags don't exist in HTML:
         super().tag(name, attrs, False)
 
     def image(self, node, entering):
-        if entering:
-            if self.disable_tags == 0:
-                if (not node.destination or
-                        self.options.get('safe') and potentially_unsafe(node.destination)):
-                    self.lit('<img src="" alt="')
-                else:
+        # Don't render the image at all in safe mode, only the alt text,
+        # but allow tags in that text in that case.
+        if not self.options.get('safe'):
+            if entering:
+                if self.disable_tags == 0:
                     self.lit(f'<img src="{self.escape(node.destination)}" alt="')
-            self.disable_tags += 1
-        else:
-            self.disable_tags -= 1
-            if self.disable_tags == 0:
-                self.lit('"')
-                if node.list_data:
-                    self.lit(''.join([
-                        f' {attr}="{self.escape(value)}"' for attr, value in node.list_data.items()
-                    ]))
-                if node.title:
-                    self.lit(f' title="{self.escape(node.title)}"')
-                self.lit('>')
+                self.disable_tags += 1
+            else:
+                self.disable_tags -= 1
+                if self.disable_tags == 0:
+                    if node.title:
+                        self.lit(f'" title="{self.escape(node.title)}')
+                    self.lit('">')
+
+    # TODO: Enable this again? But then use beautifulsoup4 to parse it and
+    # filter out bad stuff like <script> and <img> and event attributes?
+    # Or whitelist certain things?
+    def html_inline(self, node, entering):
+        if not self.options.get('safe'):
+            super().html_inline(node, entering)
+
+    def html_block(self, node, entering):
+        if not self.options.get('safe'):
+            super().html_block(node, entering)
 
 
 # TODO: unittest this class.
@@ -95,7 +121,6 @@ class Post:
     # * Moving encryption elsewhere?
     # * If the same image is used multiple times, don't re-encrypt it
     #   multiple times.
-    # * Do I want to support images in the CommonMark at all?
     def write(self, output_dir, template_dir, key):
         env = Environment(
             loader=FileSystemLoader(template_dir),
@@ -105,7 +130,6 @@ class Post:
         )
         for index, section in enumerate(self.sections):
             if isinstance(section, commonmark.node.Node):
-                encrypt_images(section, key, self.location, output_dir)
                 renderer = HTMLRenderer()
                 self.sections[index] = renderer.render(section)
             else:
@@ -171,31 +195,6 @@ def get_clean_image_data(image):
         return tmp.getvalue()
     finally:
         tmp.close()
-
-
-def encrypt_images(commonmark_ast, key, input_dir, output_dir):
-    """Encrypt images mentioned in `commonmark_ast` and update the AST.
-
-    Use `key` for the encryption.
-    Use `input_dir` as the base directory to resolve relative image paths.
-    Store the encrypted images with a random name but the original file
-    extension in `output_dir`.
-    """
-    for current, entering in commonmark_ast.walker():
-        # Absolute URLs contain ":". Ignore those.
-        if current.t == 'image' and entering and ':' not in current.destination:
-            old_path = os.path.join(input_dir, current.destination)
-            name = get_random_name()
-            with open(old_path, 'rb') as image:
-                img = Image.open(image)
-                encrypt(get_clean_image_data(img), key, os.path.join(output_dir, name))
-            current.list_data = {
-                'width': str(img.size[0]),
-                'height': str(img.size[1]),
-                'data-src': name,
-                'data-type': img.get_format_mimetype()
-            }
-            current.destination = None
 
 
 def package(input_file, base_dir, create_dir, template_dir, key=None):
