@@ -28,17 +28,30 @@ async function fetchEncryptedData(url) {
         'type': response.headers.get('Content-Type')
     }
 }
+async function decryptImages(base64key, selector) {
+    let decrypted = {};
+    for (let image of selector) {
+        if ('src' in image.dataset) {
+            let src = image.dataset.src;
+            delete image.dataset.src;
+            if (src in decrypted) {
+                image.src = decrypted[src];
+            } else {
+                image.addEventListener('load', (e) => URL.revokeObjectURL(e.target.src));
+                // TODO: Use an IntersectionObserver? Make sure to still avoid
+                // multiple fetches for the same source. And do I need to make
+                // sure an object URL isn't revoked before it is re-used?
+                const source = await fetchEncryptedData(src);
+                image.src = await decryptToObjectURL(base64key, source.data, 'image/jpeg');
+                decrypted[src] = image.src;
+            }
+        }
+    }
+}
 async function decryptContent(base64key, url) {
     const content = await decryptToText(base64key, (await fetchEncryptedData(url)).data);
     let container = document.createElement('article');
     container.innerHTML = content;
-    for (let image of container.querySelectorAll('img')) {
-        let src = image.dataset['src'];
-        if (src) {
-            image.addEventListener('load', () => URL.revokeObjectURL(src));
-            const source = await fetchEncryptedData(src);
-            image.src = await decryptToObjectURL(base64key, source.data, 'image/jpeg');
-        }
-    }
+    decryptImages(base64key, container.querySelectorAll('img'));
     return container;
 }
