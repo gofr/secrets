@@ -133,9 +133,7 @@ class Post:
                 if abs_path not in encrypted_images:
                     img_name = get_random_file_name()
                     encrypted_images[abs_path] = img_name
-                    with open(abs_path, 'rb') as img_handle:
-                        img = Image.open(img_handle)
-                        encrypt(get_clean_image_data(img), key, os.path.join(output_dir, img_name))
+                    encrypt(get_clean_image_data(abs_path), key, os.path.join(output_dir, img_name))
                 section['image'] = encrypted_images[abs_path]
         template = env.get_template('content.html')
         content = template.render(content=self.sections)
@@ -179,15 +177,16 @@ def encrypt(data, key, output_file):
             nonce + aesgcm.encrypt(nonce, data, None))
 
 
-def get_clean_image_data(image):
-    """Return (cleaned-up) bytes given a PIL.Image object of a JPEG image.
+def get_clean_image_data(image_path):
+    """Return (cleaned-up) image data bytes given the path to a JPEG image.
 
-    If the image object was a JPEG file, return the image data converted to
-    a progressive JPEG re-compressed with settings similar to the original,
-    with EXIF metadata dropped. PIL cannot do lossless JPEG operations.
+    If the image was a JPEG file, return the image data converted to a
+    progressive JPEG re-compressed with settings similar to the original, with
+    EXIF metadata dropped. PIL cannot do lossless JPEG operations.
 
     Otherwise, raise a TypeError.
     """
+    image = Image.open(image_path)
     if image.format != 'JPEG':
         raise TypeError('Only JPEG images are supported')
     tmp = io.BytesIO()
