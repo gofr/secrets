@@ -131,7 +131,7 @@ class Post:
             if isinstance(section, dict) and 'image' in section:
                 abs_path = os.path.abspath(os.path.join(self.location, section['image']))
                 if abs_path not in encrypted_images:
-                    img_name = get_random_name()
+                    img_name = get_random_file_name()
                     encrypted_images[abs_path] = img_name
                     with open(abs_path, 'rb') as img_handle:
                         img = Image.open(img_handle)
@@ -146,13 +146,14 @@ class Post:
             index_file.write(content)
 
 
-def get_random_name():
-    return base64.b64encode(os.urandom(9), altchars=b'-_').decode()
+def get_random_file_name():
+    # Base32 to be compatible with case-insensitive file systems:
+    return base64.b32encode(os.urandom(10)).decode().strip('=').lower()
 
 
 def create_random_subdir(base_path):
     """Create directory with random name in `base_path` and return path."""
-    path = os.path.join(base_path, get_random_name())
+    path = os.path.join(base_path, get_random_file_name())
     os.mkdir(path)
     return path
 
