@@ -89,16 +89,16 @@ class Post:
             elif not section.strip():
                 continue
             else:
-                ast = self.parse_commonmark(section)
-                parsed_sections.append(ast)
+                parsed_sections.append(self.parse_commonmark(section))
         self.location = os.path.dirname(file_path)
         self.sections = parsed_sections
         self.title = metadata.get('title')
 
     def parse_commonmark(self, content):
-        """Parse CommonMark string and return AST object."""
+        """Parse CommonMark and return rendered HTML."""
         parser = commonmark.Parser()
-        return parser.parse(content)
+        renderer = HTMLRenderer()
+        return renderer.render(parser.parse(content))
 
     def parse_metadata(self, content):
         """Parse key-value string and return dict."""
@@ -129,10 +129,7 @@ class Post:
             autoescape=select_autoescape()
         )
         for index, section in enumerate(self.sections):
-            if isinstance(section, commonmark.node.Node):
-                renderer = HTMLRenderer()
-                self.sections[index] = renderer.render(section)
-            else:
+            if isinstance(section, dict) and 'image' in section:
                 name = get_random_name()
                 section['encrypted_name'] = name
                 with open(os.path.join(self.location, section['image']), 'rb') as image:
