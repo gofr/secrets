@@ -25,14 +25,14 @@ The section is considered key-value data if the first line is a key-value pair a
 Only the first section in a file starting with `/^---$/` is treated as metadata.
 
 <dl>
-    <dt>title</dt>
+    <dt><code>title</code></dt>
     <dd>Title to be used in the OpenGraph meta tag and HTML title tag.</dd>
 </dl>
 
 ### Media keys
 
 <dl>
-    <dt>image</dt>
+    <dt><code>image</code></dt>
     <dd>File path to an image.</dd>
 </dl>
 
