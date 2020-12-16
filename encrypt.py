@@ -182,8 +182,9 @@ def encrypt(data, key, output_file):
 def get_clean_image_data(image):
     """Return (cleaned-up) bytes given a PIL.Image object of a JPEG image.
 
-    If the image object was a JPEG file, return the image data losslessly
-    converted to progressive and with EXIF metadata dropped.
+    If the image object was a JPEG file, return the image data converted to
+    a progressive JPEG re-compressed with settings similar to the original,
+    with EXIF metadata dropped. PIL cannot do lossless JPEG operations.
 
     Otherwise, raise a TypeError.
     """
