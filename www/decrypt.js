@@ -1,3 +1,4 @@
+"use strict";
 // TODO: Stop polluting the global namespace.
 
 function toByteArray(base64string) {
