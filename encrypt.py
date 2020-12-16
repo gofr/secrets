@@ -118,9 +118,7 @@ class Post:
     # TODO: This needs a lot of cleanup:
     # * Create a separate Blog class that holds info like the template dir.
     # * Don't rewrite the sections in the Post object.
-    # * Moving encryption elsewhere?
-    # * If the same image is used multiple times, don't re-encrypt it
-    #   multiple times.
+    # * Move encryption elsewhere?
     def write(self, output_dir, template_dir, key):
         env = Environment(
             loader=FileSystemLoader(template_dir),
@@ -128,13 +126,17 @@ class Post:
             lstrip_blocks=True,
             autoescape=select_autoescape()
         )
+        encrypted_images = {}
         for index, section in enumerate(self.sections):
             if isinstance(section, dict) and 'image' in section:
-                name = get_random_name()
-                section['encrypted_name'] = name
-                with open(os.path.join(self.location, section['image']), 'rb') as image:
-                    img = Image.open(image)
-                    encrypt(get_clean_image_data(img), key, os.path.join(output_dir, name))
+                abs_path = os.path.abspath(os.path.join(self.location, section['image']))
+                if abs_path not in encrypted_images:
+                    img_name = get_random_name()
+                    encrypted_images[abs_path] = img_name
+                    with open(abs_path, 'rb') as img_handle:
+                        img = Image.open(img_handle)
+                        encrypt(get_clean_image_data(img), key, os.path.join(output_dir, img_name))
+                section['image'] = encrypted_images[abs_path]
         template = env.get_template('content.html')
         content = template.render(content=self.sections)
         encrypt(content.encode(), key, os.path.join(output_dir, 'content'))

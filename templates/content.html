@@ -3,7 +3,7 @@
 <section>
 {% endif %}
 {% if section.image %}
-    <div class="media"><img data-src="{{ section.encrypted_name }}"></div>
+    <div class="media"><img data-src="{{ section.image }}"></div>
 {% else %}
     <div class="content">{{ section|safe }}</div>
 {% endif %}
