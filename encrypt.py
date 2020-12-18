@@ -4,8 +4,10 @@ import argparse
 import binascii
 import base64
 import io
+import json
 import os
 import re
+import textwrap
 
 import commonmark
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -197,52 +199,114 @@ def get_clean_image_data(image_path):
         tmp.close()
 
 
-def package(input_file, base_dir, create_dir, template_dir, key=None):
-    if create_dir:
-        new_dir = create_random_subdir(base_dir)
-    else:
-        new_dir = base_dir
+def read_config(input_dir):
+    try:
+        with open(os.path.join(input_dir, 'secrets.json')) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
-    if key is None:
-        key = AESGCM.generate_key(bit_length=128)
-    post = Post(input_file)
-    post.write(new_dir, template_dir, key)
-    return new_dir, key
+
+def write_config(input_dir, new_config):
+    # TODO: Create a backup? During development I accidentally added a non-
+    # serializable object to the dict. This raised an exception while dumping.
+    # The resulting invalid JSON file was only written up to the invalid value.
+    # If that happens again I'll lose everything that still needed to be
+    # written afterwards. If this includes encryption keys I can lose access to
+    # content. I need to either make the update atomic (create new file and then
+    # overwrite the original), handle errors in some way or create a backup.
+    with open(os.path.join(input_dir, 'secrets.json'), 'w') as f:
+        json.dump(new_config, f, indent=4)
+
+
+# TODO: My publishing is incomplete. I don't include the shared JS/CSS etc.
+# that's needed to be able to view it. Should publishing involve creating
+# the whole structure, not just the encrypted content? Probably.
+def publish(input_dir, output_dir, template_dir):
+    config = read_config(input_dir)
+    for filename in os.listdir(input_dir):
+        if filename.endswith('.md'):
+            file_config = config.setdefault(filename, {})
+            # TODO: What if someone wants to publish a blog in two different
+            # places with different dirs/keys?
+            if 'dir' in file_config:
+                # BUG: The value in the JSON already includes the output dir
+                # that was used to create it previously. If I prepend it again
+                # I end up with a non-existent dir. Even if I had not prepended
+                # it before there's no guarantee that that dir still exists.
+                # If I don't prepend it I will write outside the intended
+                # output_dir (if it is different from the previous one).
+                out_dir = os.path.join(output_dir, file_config['dir'])
+            else:
+                out_dir = create_random_subdir(output_dir)
+            if 'key' in file_config:
+                key = valid_encryption_key(file_config['key'])
+            else:
+                key = AESGCM.generate_key(bit_length=128)
+            post = Post(os.path.join(input_dir, filename))
+            # Update the config before writing the encrypted files. Otherwise
+            # I could end up with encrypted content I don't have a key for.
+            # NOTE: I always write the config even if it didn't change.
+            # I think this is less error prone?
+            config[filename].update(dir=out_dir, key=base64.b64encode(key).decode())
+            write_config(input_dir, config)
+            # NOTE: I re-encrypt the content without looking if maybe the output
+            # already existed. Re-encrypting may be unnecessary but is hard
+            # to avoid since it's hard to determine if any of the content or
+            # templates changed, especially with my output being encrypted.
+            # Secondly, since image files are stored with new random names, this
+            # will leave behind now unused files from previous rounds.
+            post.write(out_dir, template_dir, key)
 
 
 if __name__ == '__main__':
+    class RawDescriptionAndDefaultsHelpFormatter(
+            argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
+        pass
+
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="""\
-        Convert a content input file to HTML and encrypt both it and any
-        media files it references. The encrypted content can be stored in a
-        new, randomly-named directory or a pre-existing one.
-        """)
-    parser.add_argument('input', help='path to content file to encrypt')
+        formatter_class=RawDescriptionAndDefaultsHelpFormatter,
+        description=textwrap.dedent("""\
+        Create a secret, encrypted blog
+
+        This tool parses all the .md files in the specified input directory
+        according to the format described in content-format.md. It then renders
+        each .md file as a basic HTML file in a randomly-named subfolder inside
+        the specified output directory, with the post text and images encrypted.
+
+        A file called secrets.json is created (or updated) inside the input
+        directory that maps the original .md filename to the name of its
+        output folder and the encryption key that was used. Each folder is
+        encrypted with a different key. All content in one folder uses the same
+        key but a different IV.
+
+        The resulting output can be hosted anywhere that supports static content
+        and HTTPS. To load the decrypted content, use the encryption key as the
+        hash. E.g. https://your.host/randomdirname/#theencryptionkey
+
+        The key is not sent to the server in this way, but this is clearly not
+        very secure for at least two reasons:
+        * Anyone you share a link with will have the encryption key and can
+          decrypt the content you shared with them. They might accidentally or
+          deliberately share that link with others.
+        * This method is not host-proof. It would be possible for your host to
+          acquire the encryption key even if it isn't normally sent to them.
+
+        The decryption happens on the client side using the Web Crypto API:
+        https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
+
+        As that documentation states:
+
+        "If you're not sure you know what you are doing, you probably shouldn't
+        be using this API."
+
+        I don't know what I'm doing. Don't use this tool for anything serious.
+        """))
+    parser.add_argument('input_dir', help='path to directory with blog content')
+    parser.add_argument('output_dir', help='path to directory to write encrypted content to')
     parser.add_argument(
         '--template-dir', default='templates',
         help='path to directory containing templates')
-    parser.add_argument('--key', type=valid_encryption_key, help="""\
-        existing base64-encoded, 128-bit encryption key to use instead of
-        generating a new one""")
-
-    output_group = parser.add_mutually_exclusive_group()
-    output_group.add_argument(
-        '--base-dir', default='.', help="""\
-            path to output base directory. The encrypted files are stored in a
-            new, randomly named directory inside this. Mutually exclusive with
-            --output-dir.""")
-    output_group.add_argument(
-        '--output-dir', help="""\
-            path to output directory. The encrypted files are stored directly
-            in this directory. Mutually exclusive with --base-dir.""")
 
     args = parser.parse_args()
-
-    output_dir = args.output_dir or args.base_dir
-    create_dir = (args.output_dir is None)
-
-    new_dir, key = package(
-        args.input, output_dir, create_dir, args.template_dir, args.key)
-    base64key = base64.b64encode(key).decode()
-    print(f'dir={new_dir}\nkey={base64key}')
+    publish(args.input_dir, args.output_dir, args.template_dir)
