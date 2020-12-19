@@ -3,6 +3,7 @@
 import argparse
 import binascii
 import base64
+import copy
 import io
 import json
 import os
@@ -117,9 +118,8 @@ class Post:
                 raise ValueError(f'Invalid key-value data in line:\n{match.group(0)}')
         return data
 
-    # TODO: This needs a lot of cleanup:
+    # TODO: Cleanup still needed:
     # * Create a separate Blog class that holds info like the template dir.
-    # * Don't rewrite the sections in the Post object.
     # * Move encryption elsewhere?
     def write(self, output_dir, template_dir, key):
         env = Environment(
@@ -129,7 +129,8 @@ class Post:
             autoescape=select_autoescape()
         )
         encrypted_images = {}
-        for index, section in enumerate(self.sections):
+        copied_sections = copy.deepcopy(self.sections)
+        for section in copied_sections:
             if isinstance(section, dict) and 'image' in section:
                 abs_path = os.path.abspath(os.path.join(self.location, section['image']))
                 if abs_path not in encrypted_images:
@@ -137,13 +138,13 @@ class Post:
                     encrypted_images[abs_path] = img_name
                     encrypt(get_clean_image_data(abs_path), key, os.path.join(output_dir, img_name))
                 section['image'] = encrypted_images[abs_path]
-        template = env.get_template('content.html')
-        content = template.render(content=self.sections)
+        content_template = env.get_template('content.html')
+        content = content_template.render(content=copied_sections)
         encrypt(content.encode(), key, os.path.join(output_dir, 'content'))
-        template = env.get_template('article.html')
+        post_template = env.get_template('article.html')
         with open(os.path.join(output_dir, 'index.html'), 'w') as index_file:
-            content = template.render(title=self.title)
-            index_file.write(content)
+            post = post_template.render(title=self.title)
+            index_file.write(post)
 
 
 def get_random_file_name():
