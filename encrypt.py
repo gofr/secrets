@@ -111,15 +111,9 @@ class Blog:
             # places with different dirs/keys? Should the config go in the
             # output_dir instead? But it should definitely not be made public!
             if 'dir' in post_config:
-                # BUG: The value in the JSON already includes the output dir
-                # that was used to create it previously. If I prepend it again
-                # I end up with a non-existent dir. Even if I had not prepended
-                # it before there's no guarantee that that dir still exists.
-                # If I don't prepend it I will write outside the intended
-                # output_dir (if it is different from the previous one).
-                out_dir = os.path.join(output_dir, post_config['dir'])
+                post_dir = post_config['dir']
             else:
-                out_dir = create_random_subdir(output_dir)
+                post_dir = get_random_file_name()
             if 'key' in post_config:
                 # NOTE: This can raise argparse.ArgumentTypeError, which is strange here.
                 key = valid_encryption_key(post_config['key'])
@@ -129,7 +123,7 @@ class Blog:
             # I could end up with encrypted content I don't have a key for.
             # NOTE: I always write the config even if it didn't change.
             # Is this less error prone?
-            self.config[filename].update(dir=out_dir, key=base64.b64encode(key).decode())
+            self.config[filename].update(dir=post_dir, key=base64.b64encode(key).decode())
             self.write_config()
             # NOTE: I re-encrypt the content without looking if maybe the output
             # already existed. Re-encrypting may be unnecessary but is hard
@@ -137,7 +131,7 @@ class Blog:
             # templates changed, especially with my output being encrypted.
             # Secondly, since image files are stored with new random names, this
             # will leave behind now unused files from previous rounds.
-            post.write(out_dir, template_dir, key)
+            post.write(os.path.join(output_dir, post_dir), template_dir, key)
 
 
 # TODO: unittest this class.
@@ -192,12 +186,22 @@ class Post:
 
     # TODO: Move encryption elsewhere?
     def write(self, output_dir, template_dir, key):
+        """Write blog post to encrypted files in `output_dir`.
+
+        Render the content using templates from `template_dir`.
+        Use `key` bytes as the encryption key.
+        `output_dir` will be created if it doesn't exist yet.
+        """
         env = Environment(
             loader=FileSystemLoader(template_dir),
             trim_blocks=True,
             lstrip_blocks=True,
             autoescape=select_autoescape()
         )
+        # Normalize path, since the documentation for makedirs says:
+        # "makedirs() will become confused if the path elements to create include pardir"
+        output_dir = os.path.normpath(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
         encrypted_images = {}
         copied_sections = copy.deepcopy(self.sections)
         for section in copied_sections:
@@ -220,13 +224,6 @@ class Post:
 def get_random_file_name():
     # Base32 to be compatible with case-insensitive file systems:
     return base64.b32encode(os.urandom(10)).decode().strip('=').lower()
-
-
-def create_random_subdir(base_path):
-    """Create directory with random name in `base_path` and return path."""
-    path = os.path.join(base_path, get_random_file_name())
-    os.mkdir(path)
-    return path
 
 
 def valid_encryption_key(base64key):
