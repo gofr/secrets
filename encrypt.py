@@ -71,11 +71,83 @@ class HTMLRenderer(commonmark.HtmlRenderer):
 
 
 # TODO: unittest this class.
+class Blog:
+    CONFIG_NAME = 'secrets.json'  # Name of file in the input_dir
+
+    def __init__(self, input_dir):
+        self.input_dir = input_dir
+        self.config = None
+        self.load_config()
+        posts = {}
+        for filename in os.listdir(input_dir):
+            if filename.endswith('.md'):
+                posts[filename] = Post(os.path.join(input_dir, filename))
+        self.posts = posts
+
+    def load_config(self):
+        try:
+            with open(os.path.join(self.input_dir, self.CONFIG_NAME)) as f:
+                self.config = json.load(f)
+        except FileNotFoundError:
+            self.config = {}
+
+    def write_config(self):
+        # TODO: Create a backup? During development I accidentally added a non-
+        # serializable object to the dict. This raised an exception while dumping.
+        # The resulting invalid JSON file was only written up to the invalid value.
+        # If that happens again I'll lose everything that still needed to be
+        # written afterwards. If this includes encryption keys I can lose access to
+        # content. I need to either make the update atomic (create new file and then
+        # overwrite the original), handle errors in some way or create a backup.
+        with open(os.path.join(self.input_dir, self.CONFIG_NAME), 'w') as f:
+            json.dump(self.config, f, indent=4)
+
+    def write(self, output_dir, template_dir):
+        for filename, post in self.posts.items():
+            # TODO: What do I do with posts that are listed in the config but
+            # don't have any corresponding file?
+            post_config = self.config.setdefault(filename, {})
+            # TODO: What if someone wants to publish a blog in two different
+            # places with different dirs/keys? Should the config go in the
+            # output_dir instead? But it should definitely not be made public!
+            if 'dir' in post_config:
+                # BUG: The value in the JSON already includes the output dir
+                # that was used to create it previously. If I prepend it again
+                # I end up with a non-existent dir. Even if I had not prepended
+                # it before there's no guarantee that that dir still exists.
+                # If I don't prepend it I will write outside the intended
+                # output_dir (if it is different from the previous one).
+                out_dir = os.path.join(output_dir, post_config['dir'])
+            else:
+                out_dir = create_random_subdir(output_dir)
+            if 'key' in post_config:
+                # NOTE: This can raise argparse.ArgumentTypeError, which is strange here.
+                key = valid_encryption_key(post_config['key'])
+            else:
+                key = AESGCM.generate_key(bit_length=128)
+            # Update the config before writing the encrypted files. Otherwise
+            # I could end up with encrypted content I don't have a key for.
+            # NOTE: I always write the config even if it didn't change.
+            # Is this less error prone?
+            self.config[filename].update(dir=out_dir, key=base64.b64encode(key).decode())
+            self.write_config()
+            # NOTE: I re-encrypt the content without looking if maybe the output
+            # already existed. Re-encrypting may be unnecessary but is hard
+            # to avoid since it's hard to determine if any of the content or
+            # templates changed, especially with my output being encrypted.
+            # Secondly, since image files are stored with new random names, this
+            # will leave behind now unused files from previous rounds.
+            post.write(out_dir, template_dir, key)
+
+
+# TODO: unittest this class.
 class Post:
     _metadata_pattern = re.compile(
         r'^(?:(?P<key>[a-z0-9_]+): (?P<value>.+)|# .*||(?P<error>.*))$',
         re.MULTILINE)
 
+    # TODO: Require a post to be associated with a Blog? In that case I can set
+    # global options on the blog that get used by posts.
     def __init__(self, file_path):
         with open(file_path, 'rt') as f:
             sections = re.split(r'\n\n---\n', f.read(), flags=re.MULTILINE)
@@ -118,9 +190,7 @@ class Post:
                 raise ValueError(f'Invalid key-value data in line:\n{match.group(0)}')
         return data
 
-    # TODO: Cleanup still needed:
-    # * Create a separate Blog class that holds info like the template dir.
-    # * Move encryption elsewhere?
+    # TODO: Move encryption elsewhere?
     def write(self, output_dir, template_dir, key):
         env = Environment(
             loader=FileSystemLoader(template_dir),
@@ -200,64 +270,12 @@ def get_clean_image_data(image_path):
         tmp.close()
 
 
-def read_config(input_dir):
-    try:
-        with open(os.path.join(input_dir, 'secrets.json')) as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-
-
-def write_config(input_dir, new_config):
-    # TODO: Create a backup? During development I accidentally added a non-
-    # serializable object to the dict. This raised an exception while dumping.
-    # The resulting invalid JSON file was only written up to the invalid value.
-    # If that happens again I'll lose everything that still needed to be
-    # written afterwards. If this includes encryption keys I can lose access to
-    # content. I need to either make the update atomic (create new file and then
-    # overwrite the original), handle errors in some way or create a backup.
-    with open(os.path.join(input_dir, 'secrets.json'), 'w') as f:
-        json.dump(new_config, f, indent=4)
-
-
 # TODO: My publishing is incomplete. I don't include the shared JS/CSS etc.
 # that's needed to be able to view it. Should publishing involve creating
 # the whole structure, not just the encrypted content? Probably.
 def publish(input_dir, output_dir, template_dir):
-    config = read_config(input_dir)
-    for filename in os.listdir(input_dir):
-        if filename.endswith('.md'):
-            file_config = config.setdefault(filename, {})
-            # TODO: What if someone wants to publish a blog in two different
-            # places with different dirs/keys?
-            if 'dir' in file_config:
-                # BUG: The value in the JSON already includes the output dir
-                # that was used to create it previously. If I prepend it again
-                # I end up with a non-existent dir. Even if I had not prepended
-                # it before there's no guarantee that that dir still exists.
-                # If I don't prepend it I will write outside the intended
-                # output_dir (if it is different from the previous one).
-                out_dir = os.path.join(output_dir, file_config['dir'])
-            else:
-                out_dir = create_random_subdir(output_dir)
-            if 'key' in file_config:
-                key = valid_encryption_key(file_config['key'])
-            else:
-                key = AESGCM.generate_key(bit_length=128)
-            post = Post(os.path.join(input_dir, filename))
-            # Update the config before writing the encrypted files. Otherwise
-            # I could end up with encrypted content I don't have a key for.
-            # NOTE: I always write the config even if it didn't change.
-            # I think this is less error prone?
-            config[filename].update(dir=out_dir, key=base64.b64encode(key).decode())
-            write_config(input_dir, config)
-            # NOTE: I re-encrypt the content without looking if maybe the output
-            # already existed. Re-encrypting may be unnecessary but is hard
-            # to avoid since it's hard to determine if any of the content or
-            # templates changed, especially with my output being encrypted.
-            # Secondly, since image files are stored with new random names, this
-            # will leave behind now unused files from previous rounds.
-            post.write(out_dir, template_dir, key)
+    blog = Blog(input_dir)
+    blog.write(output_dir, template_dir)
 
 
 if __name__ == '__main__':
