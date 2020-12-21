@@ -92,15 +92,19 @@ class Blog:
             self.config = {}
 
     def write_config(self):
-        # TODO: Create a backup? During development I accidentally added a non-
-        # serializable object to the dict. This raised an exception while dumping.
-        # The resulting invalid JSON file was only written up to the invalid value.
-        # If that happens again I'll lose everything that still needed to be
-        # written afterwards. If this includes encryption keys I can lose access to
-        # content. I need to either make the update atomic (create new file and then
-        # overwrite the original), handle errors in some way or create a backup.
-        with open(os.path.join(self.input_dir, self.CONFIG_NAME), 'w') as f:
-            json.dump(self.config, f, indent=4)
+        # NOTE: It's quite important not to lose the config since it holds
+        # encryption keys. This is reasonably safe now, but not thread-safe.
+        config_file = os.path.join(self.input_dir, self.CONFIG_NAME)
+        # Dump to string to find errors early and not end up with a corrupt file:
+        config = json.dumps(self.config, indent=4)
+        try:
+            # Move the old config out of the way, replacing the old backup.
+            os.replace(config_file, config_file + '.bak')
+        except FileNotFoundError:
+            pass  # There was nothing to move.
+        # Now write the new file:
+        with open(config_file, 'x') as f:
+            f.write(config)
 
     def write(self, output_dir, template_dir):
         for filename, post in self.posts.items():
