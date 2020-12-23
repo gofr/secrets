@@ -1,5 +1,5 @@
 "use strict";
-// TODO: Stop polluting the global namespace.
+(function() {
 
 function toByteArray(base64string) {
     // https://stackoverflow.com/a/41106346/23263
@@ -60,3 +60,7 @@ async function decryptContent(base64key, url) {
     }
     return container;
 }
+
+window.decryptContent = decryptContent;
+
+})();
