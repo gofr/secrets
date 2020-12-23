@@ -9,6 +9,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="../load.js"></script>
 <script src="../decrypt.js" defer></script>
+{% if has_panorama %}
+<script src="../photo-sphere-viewer.js" defer></script>
+<script src="../panorama.js" defer></script>
+<link href="../photo-sphere-viewer.css" rel="stylesheet">
+{% endif %}
 <link href="../style.css" rel="stylesheet">
 <link href="../favicon.ico" rel="icon">
 </head>

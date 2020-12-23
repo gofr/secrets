@@ -29,9 +29,12 @@ async function fetchEncryptedData(url) {
         'type': response.headers.get('Content-Type')
     }
 }
-async function decryptImage(base64key, url, type = 'image/jpeg') {
+async function fetchDecryptedObject(url, base64key, type = 'image/jpeg') {
     const source = await fetchEncryptedData(url);
-    let object = await decryptToObjectURL(base64key, source.data, type);
+    return await decryptToObjectURL(base64key, source.data, type);
+}
+async function decryptImage(base64key, url, type = 'image/jpeg') {
+    let object = await fetchDecryptedObject(url, base64key, type);
     // Update all the images using the same URL:
     for (let image of document.querySelectorAll(`img[data-src="${url}"]`)) {
         delete image.dataset.src;
@@ -58,9 +61,15 @@ async function decryptContent(base64key, url) {
     for (let image of container.querySelectorAll('.media img')) {
         observer.observe(image);
     }
+    if (panoramaObserver) {
+        for (let panorama of container.querySelectorAll('.media .panorama')) {
+            panoramaObserver.observe(panorama);
+        }
+    }
     return container;
 }
 
 window.decryptContent = decryptContent;
+window.fetchDecryptedObject = fetchDecryptedObject;
 
 })();

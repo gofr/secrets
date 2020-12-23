@@ -2,7 +2,9 @@
 {% if not loop.previtem or section.image %}
 <section>
 {% endif %}
-{% if section.image %}
+{% if section.image and section.is_panorama %}
+    <div class="media"><div class="panorama" data-panorama="{{ section.image }}"></div></div>
+{% elif section.image %}
     <div class="media"><img data-src="{{ section.image }}"></div>
 {% else %}
     <div class="content">{{ section|safe }}</div>

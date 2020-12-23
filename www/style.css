@@ -16,6 +16,11 @@ article {
         position: sticky;
         top: 0;
     }
+        article .media .panorama {
+            height: 100vh;
+            margin-bottom: 10em;
+            width: 100%;
+        }
         article .media img {
             display: block;
             margin: 0 auto 3em;

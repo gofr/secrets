@@ -207,6 +207,7 @@ class Post:
         output_dir = os.path.normpath(output_dir)
         os.makedirs(output_dir, exist_ok=True)
         encrypted_images = {}
+        has_panorama = False
         copied_sections = copy.deepcopy(self.sections)
         for section in copied_sections:
             if isinstance(section, dict) and 'image' in section:
@@ -214,9 +215,11 @@ class Post:
                 if abs_path not in encrypted_images:
                     img_name = get_random_file_name()
                     encrypted_images[abs_path] = section
-                    image_data = get_image_data(abs_path)
+                    is_panorama, image_data = get_image_data(abs_path)
                     encrypt(image_data, key, os.path.join(output_dir, img_name))
                     section['image'] = img_name
+                    section['is_panorama'] = is_panorama
+                    has_panorama = has_panorama or is_panorama
                 else:
                     section = encrypted_images[abs_path]
         content_template = env.get_template('content.html')
@@ -224,7 +227,7 @@ class Post:
         encrypt(content.encode(), key, os.path.join(output_dir, 'content'))
         post_template = env.get_template('article.html')
         with open(os.path.join(output_dir, 'index.html'), 'w') as index_file:
-            post = post_template.render(title=self.title)
+            post = post_template.render(title=self.title, has_panorama=has_panorama)
             index_file.write(post)
 
 
@@ -253,25 +256,43 @@ def encrypt(data, key, output_file):
         output_object.write(
             nonce + aesgcm.encrypt(nonce, data, None))
 
+
+def get_panorama_data(image):
+    for segment, content in image.applist:
+        if segment == 'APP1' and b'http://ns.adobe.com/xap/1.0/' in content:
+            # Strip out most of the attributes the panorama viewer doesn't need:
+            unnecessary_attributes = re.compile(rb"""
+                \s*
+                (?:xmlns:TPano|TPano:|GPano:(?!Cropped|Full|PoseHeadingDegrees|ProjectionType))
+                \w*=".*?"
+                """, re.VERBOSE)
+            return re.sub(unnecessary_attributes, b'', content)
+    return b''
+
+
 def get_image_data(image_path, max_size=1920):
-    """Return image data bytes for a JPEG image.
+    """Return a tuple of (is panorama, image data bytes) for a JPEG image.
 
     Raise a TypeError if `image_path` does not point to a JPEG.
 
-    Resize the image down to fit in a `max_size` square if needed.
+    Resize the image down to fit in a `max_size` square if needed. Don't resize
+    the image if it contains GPano XMP data.
 
-    Return bytes data of the image re-saved as an 80% quality, progressive JPEG
-    with all metadata dropped.
+    Return a tuple consisting of:
+    * a Boolean indicating whether the image has panoramic data,
+    * bytes data of the image re-saved as an 80% quality, progressive JPEG
+      with all metadata dropped, except for minimal GPano data.
     """
     image = Image.open(image_path)
     if image.format != 'JPEG':
         raise TypeError('Only JPEG images are supported')
-    if image.width > max_size or image.height > max_size:
+    panorama = get_panorama_data(image)
+    if not panorama and (image.width > max_size or image.height > max_size):
         image.thumbnail((max_size, max_size))
     tmp = io.BytesIO()
     try:
-        image.save(tmp, format='JPEG', quality=80, progressive=True)
-        return tmp.getvalue()
+        image.save(tmp, format='JPEG', quality=80, progressive=True, exif=panorama)
+        return (bool(panorama), tmp.getvalue())
     finally:
         tmp.close()
 
