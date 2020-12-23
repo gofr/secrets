@@ -213,9 +213,12 @@ class Post:
                 abs_path = os.path.abspath(os.path.join(self.location, section['image']))
                 if abs_path not in encrypted_images:
                     img_name = get_random_file_name()
-                    encrypted_images[abs_path] = img_name
-                    encrypt(get_clean_image_data(abs_path), key, os.path.join(output_dir, img_name))
-                section['image'] = encrypted_images[abs_path]
+                    encrypted_images[abs_path] = section
+                    image_data = get_image_data(abs_path)
+                    encrypt(image_data, key, os.path.join(output_dir, img_name))
+                    section['image'] = img_name
+                else:
+                    section = encrypted_images[abs_path]
         content_template = env.get_template('content.html')
         content = content_template.render(content=copied_sections)
         encrypt(content.encode(), key, os.path.join(output_dir, 'content'))
@@ -250,22 +253,24 @@ def encrypt(data, key, output_file):
         output_object.write(
             nonce + aesgcm.encrypt(nonce, data, None))
 
+def get_image_data(image_path, max_size=1920):
+    """Return image data bytes for a JPEG image.
 
-def get_clean_image_data(image_path):
-    """Return (cleaned-up) image data bytes given the path to a JPEG image.
+    Raise a TypeError if `image_path` does not point to a JPEG.
 
-    If the image was a JPEG file, return the image data converted to a
-    progressive JPEG re-compressed with settings similar to the original, with
-    EXIF metadata dropped. PIL cannot do lossless JPEG operations.
+    Resize the image down to fit in a `max_size` square if needed.
 
-    Otherwise, raise a TypeError.
+    Return bytes data of the image re-saved as an 80% quality, progressive JPEG
+    with all metadata dropped.
     """
     image = Image.open(image_path)
     if image.format != 'JPEG':
         raise TypeError('Only JPEG images are supported')
+    if image.width > max_size or image.height > max_size:
+        image.thumbnail((max_size, max_size))
     tmp = io.BytesIO()
     try:
-        image.save(tmp, format='JPEG', quality='keep', progressive=True)
+        image.save(tmp, format='JPEG', quality=80, progressive=True)
         return tmp.getvalue()
     finally:
         tmp.close()
