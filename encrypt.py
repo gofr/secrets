@@ -225,7 +225,7 @@ class Post:
         content_template = env.get_template('content.html')
         content = content_template.render(content=copied_sections)
         encrypt(content.encode(), key, os.path.join(output_dir, 'content'))
-        post_template = env.get_template('article.html')
+        post_template = env.get_template('post.html')
         with open(os.path.join(output_dir, 'index.html'), 'w') as index_file:
             post = post_template.render(title=self.title, has_panorama=has_panorama)
             index_file.write(post)
