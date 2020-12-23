@@ -8,6 +8,7 @@ import io
 import json
 import os
 import re
+import shutil
 import textwrap
 
 import commonmark
@@ -107,6 +108,10 @@ class Blog:
             f.write(config)
 
     def write(self, output_dir, template_dir):
+        # TODO: Do something less hacky. And allow output dir to exist?
+        shutil.copytree(
+            os.path.join(self.input_dir, os.pardir, 'www'),
+            output_dir)
         for filename, post in self.posts.items():
             # TODO: What do I do with posts that are listed in the config but
             # don't have any corresponding file?
@@ -297,9 +302,6 @@ def get_image_data(image_path, max_size=1920):
         tmp.close()
 
 
-# TODO: My publishing is incomplete. I don't include the shared JS/CSS etc.
-# that's needed to be able to view it. Should publishing involve creating
-# the whole structure, not just the encrypted content? Probably.
 def publish(input_dir, output_dir, template_dir):
     blog = Blog(input_dir)
     blog.write(output_dir, template_dir)
