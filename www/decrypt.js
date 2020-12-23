@@ -29,22 +29,23 @@ async function fetchEncryptedData(url) {
         'type': response.headers.get('Content-Type')
     }
 }
-async function decryptImages(base64key, selector) {
-    let decrypted = {};
-    for (let image of selector) {
-        if ('src' in image.dataset) {
-            let src = image.dataset.src;
-            delete image.dataset.src;
-            if (src in decrypted) {
-                image.src = decrypted[src];
-            } else {
-                image.addEventListener('load', (e) => URL.revokeObjectURL(e.target.src));
-                // TODO: Use an IntersectionObserver? Make sure to still avoid
-                // multiple fetches for the same source. And do I need to make
-                // sure an object URL isn't revoked before it is re-used?
-                const source = await fetchEncryptedData(src);
-                image.src = await decryptToObjectURL(base64key, source.data, 'image/jpeg');
-                decrypted[src] = image.src;
+async function decryptImage(base64key, url, type = 'image/jpeg') {
+    const source = await fetchEncryptedData(url);
+    let object = await decryptToObjectURL(base64key, source.data, type);
+    // Update all the images using the same URL:
+    for (let image of document.querySelectorAll(`img[data-src="${url}"]`)) {
+        delete image.dataset.src;
+        // Revoking multiple times doesn't seem to hurt:
+        image.addEventListener('load', (e) => URL.revokeObjectURL(e.target.src));
+        image.src = object;
+    }
+}
+function decryptImages(base64key) {
+    return async function imageDecryptCallback(entries, observer) {
+        for (let entry of entries) {
+            let image = entry.target;
+            if (entry.isIntersecting && 'src' in image.dataset) {
+                await decryptImage(base64key, image.dataset.src);
             }
         }
     }
@@ -53,6 +54,9 @@ async function decryptContent(base64key, url) {
     const content = await decryptToText(base64key, (await fetchEncryptedData(url)).data);
     let container = document.createElement('article');
     container.innerHTML = content;
-    decryptImages(base64key, container.querySelectorAll('img'));
+    var observer = new IntersectionObserver(decryptImages(base64key), {rootMargin: '50px'});
+    for (let image of container.querySelectorAll('.media img')) {
+        observer.observe(image);
+    }
     return container;
 }
