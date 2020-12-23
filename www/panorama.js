@@ -16,7 +16,7 @@
         if (p.croppedWidth == p.fullWidth && p.croppedX == 0) {
             return null;
         } else {
-            const longitude = x => 2 * Math.PI * (x / p.fullWidth);
+            const longitude = x => 2 * Math.PI * (x / p.fullWidth) - Math.PI;
             return [longitude(p.croppedX), longitude(p.croppedX + p.croppedWidth)];
         }
     }
