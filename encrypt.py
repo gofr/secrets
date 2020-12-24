@@ -258,8 +258,7 @@ def encrypt(data, key, output_file):
     aesgcm = AESGCM(key)
     nonce = os.urandom(12)  # 96 random bits
     with open(output_file, 'wb') as output_object:
-        output_object.write(
-            nonce + aesgcm.encrypt(nonce, data, None))
+        output_object.write(nonce + aesgcm.encrypt(nonce, data, None))
 
 
 def get_panorama_data(image):
