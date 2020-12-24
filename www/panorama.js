@@ -32,6 +32,7 @@
                     "panorama": blob,
                     "navbar": false,
                     "mousewheel": false,
+                    "minFov": 20,
                     "touchmoveTwoFingers": true,
                     "plugins": [
                         PhotoSphereViewer.VisibleRangePlugin,
