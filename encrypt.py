@@ -132,7 +132,8 @@ class Blog:
             # I could end up with encrypted content I don't have a key for.
             # NOTE: I always write the config even if it didn't change.
             # Is this less error prone?
-            self.config[filename].update(dir=post_dir, key=base64.b64encode(key).decode())
+            self.config[filename].update(
+                dir=post_dir, key=base64.b64encode(key).decode().rstrip('='))
             self.write_config()
             # NOTE: I re-encrypt the content without looking if maybe the output
             # already existed. Re-encrypting may be unnecessary but is hard
@@ -238,12 +239,16 @@ class Post:
 
 def get_random_file_name():
     # Base32 to be compatible with case-insensitive file systems:
-    return base64.b32encode(os.urandom(10)).decode().strip('=').lower()
+    return base64.b32encode(os.urandom(10)).decode().rstrip('=').lower()
 
 
 def valid_encryption_key(base64key):
     prefix = 'Invalid base64-encoded encryption key:'
     try:
+        # Ignore padding. JavaScript's atob() doesn't need it, it looks ugly in
+        # URLs and is not always included when e.g. apps turn the copied URL
+        # into a clickable link. Too long padding validates.
+        base64key = base64key.rstrip('=') + '=='
         key = base64.b64decode(base64key, validate=True)
         if len(key) == 16:
             return key
