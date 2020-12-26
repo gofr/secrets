@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from utils import (
-    encrypt, get_image_data, get_random_file_name, valid_encryption_key,
+    encrypt, get_image_data, get_random_file_name, decode_encryption_key,
     HTMLRenderer
 )
 
@@ -68,8 +68,7 @@ class Blog:
             else:
                 post_dir = get_random_file_name()
             if 'key' in post_config:
-                # NOTE: This can raise argparse.ArgumentTypeError, which is strange here.
-                key = valid_encryption_key(post_config['key'])
+                key = decode_encryption_key(post_config['key'])
             else:
                 key = AESGCM.generate_key(bit_length=128)
             # Update the config before writing the encrypted files. Otherwise

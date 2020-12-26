@@ -1,4 +1,3 @@
-import argparse
 import binascii
 import base64
 import io
@@ -69,7 +68,7 @@ def get_random_file_name():
     return base64.b32encode(os.urandom(10)).decode().rstrip('=').lower()
 
 
-def valid_encryption_key(base64key):
+def decode_encryption_key(base64key):
     prefix = 'Invalid base64-encoded encryption key:'
     try:
         # Ignore padding. JavaScript's atob() doesn't need it, it looks ugly in
@@ -80,9 +79,9 @@ def valid_encryption_key(base64key):
         if len(key) == 16:
             return key
         else:
-            raise argparse.ArgumentTypeError(f'{prefix} Key must be 128 bit')
+            raise ValueError(f'{prefix} Key must be 128 bit')
     except binascii.Error as e:
-        raise argparse.ArgumentTypeError(f'{prefix} {e}')
+        raise ValueError(f'{prefix} {e}')
 
 
 def encrypt(data, key, output_file):
