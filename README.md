@@ -4,14 +4,19 @@ A not really host-proof, encrypted blog.
 
 Don't use this for anything serious.
 
-## Installation
+## Run
 
 On Linux, you could do this in your Git checkout:
 
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -r requirements.txt
-    ./encrypt.py --help
+```bash
+# Create an virtual environment and activate it:
+python3 -m venv venv
+source venv/bin/activate
+# Install requirements in the virtual environment:
+pip install -r requirements.txt
+# Run the help command:
+./encrypt.py --help
+```
 
 ## Licenses
 
