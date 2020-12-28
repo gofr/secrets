@@ -18,6 +18,12 @@ pip install -r requirements.txt
 ./encrypt.py --help
 ```
 
+### Test
+
+Run tests, in the virtual environment if you created one, with:
+
+    python3 -m unittest discover -s tests
+
 ## Licenses
 
 This software is released under the MIT license. See `LICENSE.txt`.
