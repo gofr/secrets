@@ -90,8 +90,9 @@ class Blog:
 # TODO: unittest this class.
 # TODO: add methods to manipulate post sections.
 class Post:
+    _key_pattern = re.compile(r'[a-z0-9_]+')
     _metadata_pattern = re.compile(
-        r'^(?:(?P<key>[a-z0-9_]+): (?P<value>.+)|# .*||(?P<error>.*))$',
+        fr'^(?:(?P<key>{_key_pattern.pattern}): (?P<value>.+)|# .*||(?P<error>.*))$',
         re.MULTILINE)
 
     # TODO: Require a post to be associated with a Blog? In that case I can set
@@ -157,8 +158,18 @@ class Post:
     @classmethod
     def dump_metadata(cls, metadata):
         """Return metadata dumped to string in expected content input format."""
-        # TODO: Validate metadata?
-        return '\n'.join([f'{key}: {value}' for key, value in metadata.items()])
+        data = []
+        for key, value in metadata.items():
+            # This match avoids invalid key strings but also raises an exception
+            # if the key is not a string, avoiding potential clashes caused by
+            # keys of different types stringifying to the same value.
+            if re.fullmatch(cls._key_pattern, key):
+                data.append(f'{key}: {value}')
+            else:
+                raise ValueError(
+                    f'Invalid metadata key: "{key}".\n'
+                    f'Keys must match regular expression "{cls._key_pattern.pattern}"')
+        return '\n'.join(data)
 
     @classmethod
     def render_commonmark(cls, content):
