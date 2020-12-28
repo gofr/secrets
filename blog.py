@@ -88,7 +88,6 @@ class Blog:
 
 
 # TODO: unittest this class.
-# TODO: add methods to manipulate post sections.
 class Post:
     _key_pattern = re.compile(r'[a-z0-9_]+')
     _metadata_pattern = re.compile(
@@ -122,22 +121,26 @@ class Post:
         sections = re.split(r'\n\n---\n', content, flags=re.MULTILINE)
 
         metadata = {}
-        parsed_sections = []
         if sections[0].startswith('---\n'):
             # Parse the first section, without the leading "---\n":
             metadata = self.parse_metadata(sections.pop(0)[4:])
         for section in sections:
-            match = re.match(self._metadata_pattern, section)
-            if match and match.group('key'):
-                parsed_sections.append(self.parse_metadata(section))
-            elif not section.strip():
-                continue
-            else:
-                parsed_sections.append(section)
-        self._sections = parsed_sections
+            self.add_section(section)
         title = metadata.get('title')
         if title is not None and override_title:
             self.title = title
+
+    def add_section(self, content):
+        """Parse the `content` string and append a single section to the post.
+
+        The string is added as a media section if the first line matches a
+        key-value pair. Whitespace-only content is not added.
+        """
+        match = re.match(self._metadata_pattern, content)
+        if match and match.group('key'):
+            self._sections.append(self.parse_metadata(content))
+        elif content.strip():
+            self._sections.append(content)
 
     @classmethod
     def parse_metadata(cls, content):
