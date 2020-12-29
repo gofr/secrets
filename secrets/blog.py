@@ -9,7 +9,7 @@ import commonmark
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from utils import (
+from secrets.utils import (
     encrypt, get_image_data, get_random_file_name, decode_encryption_key,
     HTMLRenderer
 )

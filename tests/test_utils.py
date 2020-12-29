@@ -5,7 +5,7 @@ import unittest
 import commonmark
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-import utils
+import secrets.utils as utils
 
 
 class TestHTMLRenderer(unittest.TestCase):

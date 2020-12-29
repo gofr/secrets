@@ -1,6 +1,6 @@
 import unittest
 
-import blog
+import secrets.blog as blog
 
 
 class TestPost(unittest.TestCase):

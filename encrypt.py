@@ -3,7 +3,7 @@
 import argparse
 import textwrap
 
-from blog import Blog
+from secrets.blog import Blog
 
 
 def publish(input_dir, output_dir, asset_dir):
