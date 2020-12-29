@@ -6,9 +6,9 @@ import textwrap
 from blog import Blog
 
 
-def publish(input_dir, output_dir, template_dir):
+def publish(input_dir, output_dir, asset_dir):
     blog = Blog(input_dir)
-    blog.write(output_dir, template_dir)
+    blog.write(output_dir, asset_dir)
 
 
 if __name__ == '__main__':
@@ -57,8 +57,13 @@ if __name__ == '__main__':
     parser.add_argument('input_dir', help='path to directory with blog content')
     parser.add_argument('output_dir', help='path to directory to write encrypted content to')
     parser.add_argument(
-        '--template-dir', default='templates',
-        help='path to directory containing templates')
+        '--asset-dir', default='assets',
+        help="""\
+            path to directory containing public assets. This should include two
+            sub-directories: templates/ and static/. The templates/ directory
+            contains Jinja files used to generate the content. The static/
+            directory contains JS, CSS etc. files that are needed to display the
+            site and is copied to the output directory unchanged.""")
 
     args = parser.parse_args()
-    publish(args.input_dir, args.output_dir, args.template_dir)
+    publish(args.input_dir, args.output_dir, args.asset_dir)

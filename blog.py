@@ -51,11 +51,9 @@ class Blog:
         with open(config_file, 'x') as f:
             f.write(config)
 
-    def write(self, output_dir, template_dir):
+    def write(self, output_dir, asset_dir):
         # TODO: Do something less hacky. And allow output dir to exist?
-        shutil.copytree(
-            os.path.join(self.input_dir, os.pardir, 'www'),
-            output_dir)
+        shutil.copytree(os.path.join(asset_dir, 'static'), output_dir)
         for filename, post in self.posts.items():
             # TODO: What do I do with posts that are listed in the config but
             # don't have any corresponding file?
@@ -84,7 +82,7 @@ class Blog:
             # templates changed, especially with my output being encrypted.
             # Secondly, since image files are stored with new random names, this
             # will leave behind now unused files from previous rounds.
-            post.publish(os.path.join(output_dir, post_dir), template_dir, key)
+            post.publish(os.path.join(output_dir, post_dir), asset_dir, key)
 
 
 # TODO: unittest this class.
@@ -194,15 +192,15 @@ class Post:
         return '\n\n---\n'.join(dumped_sections)
 
     # TODO: Move encryption elsewhere?
-    def publish(self, output_dir, template_dir, key):
+    def publish(self, output_dir, asset_dir, key):
         """Write blog post to encrypted files in `output_dir`.
 
-        Render the content using templates from `template_dir`.
+        Render the content using templates from `{asset_dir}/templates`.
         Use `key` bytes as the encryption key.
         `output_dir` will be created if it doesn't exist yet.
         """
         env = Environment(
-            loader=FileSystemLoader(template_dir),
+            loader=FileSystemLoader(os.path.join(asset_dir, 'templates')),
             trim_blocks=True,
             lstrip_blocks=True,
             autoescape=select_autoescape()
