@@ -26,7 +26,7 @@ Only the first section in a file starting with `/^---$/` is treated as metadata.
 
 <dl>
     <dt><code>title</code></dt>
-    <dd>Title to be used in the OpenGraph meta tag and HTML title tag.</dd>
+    <dd>Title to be used in the HTML title tag. Unlike the rest of the content, this is not encrypted!</dd>
 </dl>
 
 ### Media keys

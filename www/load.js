@@ -22,15 +22,6 @@ if (anchor && isValidKey(anchor)) {
 }
 sessionStorage.setItem('dir', getLastPathComponent(location.pathname));
 
-let ogTitle = document.head.querySelector('meta[property="og:title"]');
-if (ogTitle) {
-    let title = ogTitle.getAttribute('content');
-    if (title) {
-        let titleElement = document.createElement('title');
-        titleElement.textContent = title;
-        document.head.appendChild(titleElement);
-    }
-}
 addEventListener('DOMContentLoaded', () => {
     decryptContent(sessionStorage.getItem('key'), 'content')
         .then(value => {
