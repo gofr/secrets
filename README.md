@@ -9,7 +9,7 @@ Don't use this for anything serious.
 On Linux, you could do this in your Git checkout:
 
 ```bash
-# Create an virtual environment and activate it:
+# Create a virtual environment and activate it:
 python3 -m venv venv
 source venv/bin/activate
 # Install requirements in the virtual environment:
@@ -18,11 +18,20 @@ pip install -r requirements.txt
 ./encrypt.py --help
 ```
 
-### Test
+## Contribute
 
-Run tests, in the virtual environment if you created one, with:
+* Make sure you've installed the development requirements, in a virtual environment as above:
 
+    ```bash
+    pip install -r requirements-dev.txt
+    ```
+
+* Run `isort` and `flake8`.
+* Run the tests:
+
+    ```bash
     python3 -m unittest discover -s tests
+    ```
 
 ## Licenses
 
