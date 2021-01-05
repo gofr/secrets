@@ -122,7 +122,7 @@ def get_image_data(image_path, max_size=1920):
     if image.format != 'JPEG':
         raise TypeError('Only JPEG images are supported')
     panorama = get_panorama_data(image)
-    if not panorama and (image.width > max_size or image.height > max_size):
+    if not panorama:
         image.thumbnail((max_size, max_size))
     tmp = io.BytesIO()
     try:
