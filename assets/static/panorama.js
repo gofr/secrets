@@ -7,7 +7,7 @@
         if (p.croppedHeight == p.fullHeight && p.croppedY == 0) {
             return null;
         } else {
-            const latitude = y => Math.PI * (y / p.fullHeight) - (Math.PI / 2);
+            const latitude = y => Math.PI * (1 - y / p.fullHeight) - (Math.PI / 2);
             return [latitude(p.croppedY), latitude(p.croppedY + p.croppedHeight)];
         }
     }
