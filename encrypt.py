@@ -11,7 +11,7 @@ def publish(input_dir, output_dir, asset_dir):
     blog.write(output_dir, asset_dir)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     class RawDescriptionAndDefaultsHelpFormatter(
             argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
         pass
@@ -54,10 +54,10 @@ if __name__ == '__main__':
 
         I don't know what I'm doing. Don't use this tool for anything serious.
         """))
-    parser.add_argument('input_dir', help='path to directory with blog content')
-    parser.add_argument('output_dir', help='path to directory to write encrypted content to')
+    parser.add_argument("input_dir", help="path to directory with blog content")
+    parser.add_argument("output_dir", help="path to directory to write encrypted content to")
     parser.add_argument(
-        '--asset-dir', default='assets',
+        "--asset-dir", default="assets",
         help="""\
             path to directory containing public assets. This should include two
             sub-directories: templates/ and static/. The templates/ directory

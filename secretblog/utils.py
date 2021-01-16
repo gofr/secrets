@@ -29,7 +29,7 @@ class HTMLRenderer(commonmark.HtmlRenderer):
     """
     def __init__(self, options=None):
         options = options or {}
-        options.setdefault('safe', True)
+        options.setdefault("safe", True)
         super().__init__(options)
 
     def tag(self, name, attrs=None, selfclosing=None):
@@ -39,7 +39,7 @@ class HTMLRenderer(commonmark.HtmlRenderer):
     def image(self, node, entering):
         # Don't render the image at all in safe mode, only the alt text,
         # but allow tags in that text in that case.
-        if not self.options.get('safe'):
+        if not self.options.get("safe"):
             if entering:
                 if self.disable_tags == 0:
                     self.lit(f'<img src="{self.escape(node.destination)}" alt="')
@@ -55,54 +55,54 @@ class HTMLRenderer(commonmark.HtmlRenderer):
     # filter out bad stuff like <script> and <img> and event attributes?
     # Or whitelist certain things?
     def html_inline(self, node, entering):
-        if not self.options.get('safe'):
+        if not self.options.get("safe"):
             super().html_inline(node, entering)
 
     def html_block(self, node, entering):
-        if not self.options.get('safe'):
+        if not self.options.get("safe"):
             super().html_block(node, entering)
 
 
 def get_random_file_name():
     # Base32 to be compatible with case-insensitive file systems:
-    return base64.b32encode(os.urandom(10)).decode().rstrip('=').lower()
+    return base64.b32encode(os.urandom(10)).decode().rstrip("=").lower()
 
 
 def decode_encryption_key(base64key):
-    prefix = 'Invalid base64-encoded encryption key:'
+    prefix = "Invalid base64-encoded encryption key:"
     try:
         # Ignore padding. JavaScript's atob() doesn't need it, it looks ugly in
         # URLs and is not always included when e.g. apps turn the copied URL
         # into a clickable link. Too long padding validates.
-        base64key = base64key.rstrip('=') + '=='
+        base64key = base64key.rstrip("=") + "=="
         key = base64.b64decode(base64key, validate=True)
         if len(key) == 16:
             return key
         else:
-            raise ValueError(f'{prefix} Key must be 128 bit')
+            raise ValueError(f"{prefix} Key must be 128 bit")
     except binascii.Error as e:
-        raise ValueError(f'{prefix} {e}')
+        raise ValueError(f"{prefix} {e}")
 
 
 def encrypt(data, key, output_file):
     """Write `data` bytes encrypted with 128-bit AES-GCM using `key` to `output_file`."""
     aesgcm = AESGCM(key)
     nonce = os.urandom(12)  # 96 random bits
-    with open(output_file, 'wb') as output_object:
+    with open(output_file, "wb") as output_object:
         output_object.write(nonce + aesgcm.encrypt(nonce, data, None))
 
 
 def get_panorama_data(image):
     for segment, content in image.applist:
-        if segment == 'APP1' and b'http://ns.adobe.com/xap/1.0/' in content:
+        if segment == "APP1" and b"http://ns.adobe.com/xap/1.0/" in content:
             # Strip out most of the attributes the panorama viewer doesn't need:
             unnecessary_attributes = re.compile(rb"""
                 \s*
                 (?:xmlns:TPano|TPano:|GPano:(?!Cropped|Full|PoseHeadingDegrees|ProjectionType))
                 \w*=".*?"
                 """, re.VERBOSE)
-            return re.sub(unnecessary_attributes, b'', content)
-    return b''
+            return re.sub(unnecessary_attributes, b"", content)
+    return b""
 
 
 def get_image_data(image_path, max_size=1920):
@@ -119,14 +119,14 @@ def get_image_data(image_path, max_size=1920):
       with all metadata dropped, except for minimal GPano data.
     """
     image = Image.open(image_path)
-    if image.format != 'JPEG':
-        raise TypeError('Only JPEG images are supported')
+    if image.format != "JPEG":
+        raise TypeError("Only JPEG images are supported")
     panorama = get_panorama_data(image)
     if not panorama:
         image.thumbnail((max_size, max_size))
     tmp = io.BytesIO()
     try:
-        image.save(tmp, format='JPEG', quality=80, progressive=True, exif=panorama)
+        image.save(tmp, format="JPEG", quality=80, progressive=True, exif=panorama)
         return (bool(panorama), tmp.getvalue())
     finally:
         tmp.close()

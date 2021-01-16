@@ -16,7 +16,7 @@ from secretblog.utils import (
 
 # TODO: unittest this class.
 class Blog:
-    CONFIG_NAME = 'secrets.json'  # Name of file in the input_dir
+    CONFIG_NAME = "secrets.json"  # Name of file in the input_dir
 
     def __init__(self, input_dir):
         self.input_dir = input_dir
@@ -24,7 +24,7 @@ class Blog:
         self.load_config()
         posts = {}
         for filename in os.listdir(input_dir):
-            if filename.endswith('.md'):
+            if filename.endswith(".md"):
                 posts[filename] = Post.from_file(os.path.join(input_dir, filename))
         self.posts = posts
 
@@ -43,16 +43,16 @@ class Blog:
         config = json.dumps(self.config, indent=4)
         try:
             # Move the old config out of the way, replacing the old backup.
-            os.replace(config_file, config_file + '.bak')
+            os.replace(config_file, config_file + ".bak")
         except FileNotFoundError:
             pass  # There was nothing to move.
         # Now write the new file:
-        with open(config_file, 'x') as f:
+        with open(config_file, "x") as f:
             f.write(config)
 
     def write(self, output_dir, asset_dir):
         # TODO: Do something less hacky. And allow output dir to exist?
-        shutil.copytree(os.path.join(asset_dir, 'static'), output_dir)
+        shutil.copytree(os.path.join(asset_dir, "static"), output_dir)
         for filename, post in self.posts.items():
             # TODO: What do I do with posts that are listed in the config but
             # don't have any corresponding file?
@@ -60,12 +60,12 @@ class Blog:
             # TODO: What if someone wants to publish a blog in two different
             # places with different dirs/keys? Should the config go in the
             # output_dir instead? But it should definitely not be made public!
-            if 'dir' in post_config:
-                post_dir = post_config['dir']
+            if "dir" in post_config:
+                post_dir = post_config["dir"]
             else:
                 post_dir = get_random_file_name()
-            if 'key' in post_config:
-                key = decode_encryption_key(post_config['key'])
+            if "key" in post_config:
+                key = decode_encryption_key(post_config["key"])
             else:
                 key = AESGCM.generate_key(bit_length=128)
             # Update the config before writing the encrypted files. Otherwise
@@ -73,7 +73,7 @@ class Blog:
             # NOTE: I always write the config even if it didn't change.
             # Is this less error prone?
             self.config[filename].update(
-                dir=post_dir, key=base64.b64encode(key).decode().rstrip('='))
+                dir=post_dir, key=base64.b64encode(key).decode().rstrip("="))
             self.write_config()
             # NOTE: I re-encrypt the content without looking if maybe the output
             # already existed. Re-encrypting may be unnecessary but is hard
@@ -86,9 +86,9 @@ class Blog:
 
 # TODO: unittest this class.
 class Post:
-    _key_pattern = re.compile(r'[a-z0-9_]+')
+    _key_pattern = re.compile(r"[a-z0-9_]+")
     _metadata_pattern = re.compile(
-        fr'^(?:(?P<key>{_key_pattern.pattern}): (?P<value>.+)|# .*||(?P<error>.*))$',
+        fr"^(?:(?P<key>{_key_pattern.pattern}): (?P<value>.+)|# .*||(?P<error>.*))$",
         re.MULTILINE)
 
     # TODO: Require a post to be associated with a Blog? In that case I can set
@@ -103,7 +103,7 @@ class Post:
     @classmethod
     def from_file(cls, file_path):
         """Return a new Post from the content in the given `file_path`."""
-        with open(file_path, 'rt') as f:
+        with open(file_path, "rt") as f:
             text = f.read()
         post = cls(text)
         post.location = os.path.dirname(file_path)
@@ -115,15 +115,15 @@ class Post:
         If `override_title` is `True` and the metadata in the `content` string
         contains a post title, override the existing title.
         """
-        sections = re.split(r'\n\n---\n', content, flags=re.MULTILINE)
+        sections = re.split(r"\n\n---\n", content, flags=re.MULTILINE)
 
         metadata = {}
-        if sections[0].startswith('---\n'):
+        if sections[0].startswith("---\n"):
             # Parse the first section, without the leading "---\n":
             metadata = self.parse_metadata(sections.pop(0)[4:])
         for section in sections:
             self.add_section(section)
-        title = metadata.get('title')
+        title = metadata.get("title")
         if title is not None and override_title:
             self.title = title
 
@@ -134,7 +134,7 @@ class Post:
         key-value pair. Whitespace-only content is not added.
         """
         match = re.match(self._metadata_pattern, content)
-        if match and match.group('key'):
+        if match and match.group("key"):
             self._sections.append(self.parse_metadata(content))
         elif content.strip():
             self._sections.append(content)
@@ -144,15 +144,15 @@ class Post:
         """Parse key-value string and return dict."""
         data = {}
         for match in re.finditer(cls._metadata_pattern, content):
-            key = match.group('key')
-            error = match.group('error')
+            key = match.group("key")
+            error = match.group("error")
             if key is not None:
                 if data.get(key):
                     raise ValueError(f'Duplicate "{key}" key name in line:\n{match.group(0)}')
                 else:
-                    data[key] = match.group('value')
+                    data[key] = match.group("value")
             elif error:
-                raise ValueError(f'Invalid key-value data in line:\n{match.group(0)}')
+                raise ValueError(f"Invalid key-value data in line:\n{match.group(0)}")
         return data
 
     @classmethod
@@ -164,12 +164,12 @@ class Post:
             # if the key is not a string, avoiding potential clashes caused by
             # keys of different types stringifying to the same value.
             if re.fullmatch(cls._key_pattern, key):
-                data.append(f'{key}: {value}')
+                data.append(f"{key}: {value}")
             else:
                 raise ValueError(
                     f'Invalid metadata key: "{key}".\n'
                     f'Keys must match regular expression "{cls._key_pattern.pattern}"')
-        return '\n'.join(data)
+        return "\n".join(data)
 
     @classmethod
     def render_commonmark(cls, content):
@@ -182,13 +182,13 @@ class Post:
         """Dump the post back to a mixed CommonMark string."""
         dumped_sections = []
         if self.title:
-            dumped_sections.append(f'---\ntitle: {self.title}')
+            dumped_sections.append(f"---\ntitle: {self.title}")
         for section in self._sections:
             if isinstance(section, dict):
                 dumped_sections.append(self.dump_metadata(section))
             else:
                 dumped_sections.append(section.strip())
-        return '\n\n---\n'.join(dumped_sections)
+        return "\n\n---\n".join(dumped_sections)
 
     # TODO: Move encryption elsewhere?
     def publish(self, output_dir, asset_dir, key):
@@ -199,7 +199,7 @@ class Post:
         `output_dir` will be created if it doesn't exist yet.
         """
         env = Environment(
-            loader=FileSystemLoader(os.path.join(asset_dir, 'templates')),
+            loader=FileSystemLoader(os.path.join(asset_dir, "templates")),
             trim_blocks=True,
             lstrip_blocks=True,
             autoescape=select_autoescape()
@@ -212,24 +212,24 @@ class Post:
         has_panorama = False
         copied_sections = copy.deepcopy(self._sections)
         for section in copied_sections:
-            if isinstance(section, dict) and 'image' in section:
-                abs_path = os.path.abspath(os.path.join(self.location, section['image']))
+            if isinstance(section, dict) and "image" in section:
+                abs_path = os.path.abspath(os.path.join(self.location, section["image"]))
                 if abs_path not in encrypted_images:
                     img_name = get_random_file_name()
                     encrypted_images[abs_path] = section
                     is_panorama, image_data = get_image_data(abs_path)
                     encrypt(image_data, key, os.path.join(output_dir, img_name))
-                    section['image'] = img_name
-                    section['is_panorama'] = is_panorama
+                    section["image"] = img_name
+                    section["is_panorama"] = is_panorama
                     has_panorama = has_panorama or is_panorama
                 else:
                     section = encrypted_images[abs_path]
             elif isinstance(section, str):
                 section = self.render_commonmark(section)
-        content_template = env.get_template('content.html')
+        content_template = env.get_template("content.html")
         content = content_template.render(content=copied_sections)
-        encrypt(content.encode(), key, os.path.join(output_dir, 'content'))
-        post_template = env.get_template('post.html')
-        with open(os.path.join(output_dir, 'index.html'), 'w') as index_file:
+        encrypt(content.encode(), key, os.path.join(output_dir, "content"))
+        post_template = env.get_template("post.html")
+        with open(os.path.join(output_dir, "index.html"), "w") as index_file:
             post = post_template.render(title=self.title, has_panorama=has_panorama)
             index_file.write(post)
