@@ -8,7 +8,7 @@
         const visibleRangePlugin = viewer.getPlugin(PhotoSphereViewer.VisibleRangePlugin);
         const latitude = visibleRangePlugin.config.latitudeRange;
         if (latitude !== null) {
-            const view = 180 * Math.abs(latitude[1] - latitude[0]) / Math.PI;
+            const view = Math.floor(180 * Math.abs(latitude[1] - latitude[0]) / Math.PI);
             if (view < viewer.prop.vFov) {
                 viewer.zoom(viewer.dataHelper.fovToZoomLevel(view));
             }
