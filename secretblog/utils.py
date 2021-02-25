@@ -81,7 +81,7 @@ def decode_encryption_key(base64key):
         else:
             raise ValueError(f"{prefix} Key must be 128 bit")
     except binascii.Error as e:
-        raise ValueError(f"{prefix} {e}")
+        raise ValueError(f"{prefix} {e}") from None
 
 
 def encrypt(data, key, output_file):

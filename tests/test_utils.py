@@ -69,8 +69,9 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(len(decoded), 16)
 
     def test_decode_key_base64_decode_error(self):
-        with self.assertRaisesRegex(ValueError, "^Invalid"):
+        with self.assertRaisesRegex(ValueError, "^Invalid") as ctx:
             utils.decode_encryption_key("-invalid-")
+        self.assertIsNone(ctx.exception.__cause__)
 
     def test_encryption(self):
         key = b"a" * 16
