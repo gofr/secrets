@@ -15,10 +15,11 @@
         }
     }
     async function panoramaCallback(entries, observer) {
+        let decryptor = await new Decryptor(sessionStorage.getItem('key'));
         for (let entry of entries) {
             if (entry.isIntersecting && 'panorama' in entry.target.dataset) {
                 let blob = await fetchDecryptedObject(
-                    entry.target.dataset.panorama, sessionStorage.getItem('key'));
+                    entry.target.dataset.panorama, decryptor);
                 delete entry.target.dataset.panorama;
 
                 viewer = new PhotoSphereViewer.Viewer({
