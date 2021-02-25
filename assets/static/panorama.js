@@ -13,14 +13,13 @@
                 viewer.zoom(viewer.dataHelper.fovToZoomLevel(view));
             }
         }
-
     }
     async function panoramaCallback(entries, observer) {
         for (let entry of entries) {
             if (entry.isIntersecting && 'panorama' in entry.target.dataset) {
                 let blob = await fetchDecryptedObject(
-                    entry.target.dataset.panorama, sessionStorage.getItem('key'))
-                delete entry.target.dataset.panorama
+                    entry.target.dataset.panorama, sessionStorage.getItem('key'));
+                delete entry.target.dataset.panorama;
 
                 viewer = new PhotoSphereViewer.Viewer({
                     "container": entry.target,
@@ -34,7 +33,7 @@
                 });
                 viewer.on('ready', function() {
                     URL.revokeObjectURL(blob);
-                    const visibleRangePlugin = viewer.getPlugin(PhotoSphereViewer.VisibleRangePlugin);
+                    viewer.getPlugin(PhotoSphereViewer.VisibleRangePlugin);
                     fillView(viewer);
                 });
                 break;

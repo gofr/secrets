@@ -3,7 +3,7 @@
 
 function toByteArray(base64string) {
     // https://stackoverflow.com/a/41106346/23263
-    return Uint8Array.from(atob(base64string), c => c.charCodeAt(0))
+    return Uint8Array.from(atob(base64string), c => c.charCodeAt(0));
 }
 async function decrypt(base64key, data) {
     const key = await crypto.subtle.importKey(
@@ -19,7 +19,7 @@ async function decryptToText(base64key, data) {
 async function decryptToObjectURL(base64key, data, type) {
     const decrypted = await decrypt(base64key, data);
     const blob = new Blob([decrypted], {"type": type});
-    return URL.createObjectURL(blob)
+    return URL.createObjectURL(blob);
 }
 async function fetchEncryptedData(url) {
     const response = await fetch(url);
@@ -27,7 +27,7 @@ async function fetchEncryptedData(url) {
     return {
         'data': new Uint8Array(buffer),
         'type': response.headers.get('Content-Type')
-    }
+    };
 }
 async function fetchDecryptedObject(url, base64key, type = 'image/jpeg') {
     const source = await fetchEncryptedData(url);
