@@ -1,6 +1,3 @@
-"use strict";
-(function() {
-
 function isValidKey(key) {
     try {
         return atob(key).length == 16;
@@ -22,6 +19,8 @@ if (anchor && isValidKey(anchor)) {
 }
 sessionStorage.setItem('dir', getLastPathComponent(location.pathname));
 
+import { decryptContent } from "./decrypt.js";
+
 addEventListener('DOMContentLoaded', () => {
     decryptContent(sessionStorage.getItem('key'), 'content')
         .then(value => {
@@ -29,5 +28,3 @@ addEventListener('DOMContentLoaded', () => {
         })
         .catch(reason => console.log(reason));
 });
-
-})();

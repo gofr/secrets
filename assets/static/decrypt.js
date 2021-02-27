@@ -1,5 +1,3 @@
-"use strict";
-
 class Decryptor {
     constructor(base64key) {
         // https://stackoverflow.com/a/41106346
@@ -30,8 +28,6 @@ class Decryptor {
     }
 }
 
-(function() {
-
 async function fetchEncryptedData(url) {
     const response = await fetch(url);
     const buffer = await response.arrayBuffer();
@@ -55,7 +51,7 @@ async function decryptImage(decryptor, url, type = 'image/jpeg') {
     }
 }
 function decryptImages(decryptor) {
-    return async function imageDecryptCallback(entries, observer) {
+    return async (entries, observer) => {
         for (let entry of entries) {
             let image = entry.target;
             if (entry.isIntersecting && 'src' in image.dataset) {
@@ -69,19 +65,19 @@ async function decryptContent(base64key, url) {
     const content = await decryptor.toText((await fetchEncryptedData(url)).data);
     let container = document.createElement('article');
     container.innerHTML = content;
-    var observer = new IntersectionObserver(decryptImages(decryptor), {rootMargin: '50px'});
+    let imgObserver = new IntersectionObserver(decryptImages(decryptor), {rootMargin: '50px'});
     for (let image of container.querySelectorAll('.media img')) {
-        observer.observe(image);
+        imgObserver.observe(image);
     }
-    if (panoramaObserver) {
-        for (let panorama of container.querySelectorAll('.media .panorama')) {
-            panoramaObserver.observe(panorama);
+    let panoramas = container.querySelectorAll('.media .panorama');
+    if (panoramas) {
+        let { getPanoramaCallback } = await import("./panorama.js");
+        let panoObserver = new IntersectionObserver(getPanoramaCallback(decryptor));
+        for (let panorama of panoramas) {
+            panoObserver.observe(panorama);
         }
     }
     return container;
 }
 
-window.decryptContent = decryptContent;
-window.fetchDecryptedObject = fetchDecryptedObject;
-
-})();
+export { Decryptor, decryptContent, fetchDecryptedObject };
