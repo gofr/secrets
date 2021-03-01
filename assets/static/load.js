@@ -24,7 +24,8 @@ import { decryptContent } from "./decrypt.js";
 addEventListener('DOMContentLoaded', () => {
     decryptContent(sessionStorage.getItem('key'), 'content')
         .then(value => {
+            document.body.classList.add('unlocked');
             document.body.appendChild(value);
         })
-        .catch(reason => console.log(reason));
+        .catch(() => {});
 });
