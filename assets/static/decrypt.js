@@ -40,22 +40,23 @@ async function fetchDecryptedObject(url, decryptor, type = 'image/jpeg') {
     const source = await fetchEncryptedData(url);
     return await decryptor.toObjectURL(source.data, type);
 }
-async function decryptImage(decryptor, url, type = 'image/jpeg') {
-    let object = await fetchDecryptedObject(url, decryptor, type);
-    // Update all the images using the same URL:
-    for (let image of document.querySelectorAll(`img[data-src="${url}"]`)) {
-        delete image.dataset.src;
-        // Revoking multiple times doesn't seem to hurt:
-        image.addEventListener('load', (e) => URL.revokeObjectURL(e.target.src));
-        image.src = object;
-    }
+function decryptImage(url, decryptor, type = 'image/jpeg') {
+    fetchDecryptedObject(url, decryptor, type).then(object => {
+        // Update all the images using the same URL:
+        for (let image of document.querySelectorAll(`img[data-src="${url}"]`)) {
+            delete image.dataset.src;
+            // Revoking multiple times doesn't seem to hurt:
+            image.addEventListener('load', (e) => URL.revokeObjectURL(e.target.src));
+            image.src = object;
+        }
+    });
 }
 function decryptImages(decryptor) {
-    return async (entries, observer) => {
+    return (entries, observer) => {
         for (let entry of entries) {
             let image = entry.target;
             if (entry.isIntersecting && 'src' in image.dataset) {
-                await decryptImage(decryptor, image.dataset.src);
+                decryptImage(image.dataset.src, decryptor);
             }
         }
     }
