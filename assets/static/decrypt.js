@@ -71,11 +71,12 @@ async function decryptContent(base64key, url) {
     }
     let panoramas = container.querySelectorAll('.media .panorama');
     if (panoramas) {
-        let { getPanoramaCallback } = await import("./panorama.js");
-        let panoObserver = new IntersectionObserver(getPanoramaCallback(decryptor));
-        for (let panorama of panoramas) {
-            panoObserver.observe(panorama);
-        }
+        import("./panorama.js").then(module => {
+            let panoObserver = new IntersectionObserver(module.getPanoramaCallback(decryptor));
+            for (let panorama of panoramas) {
+                panoObserver.observe(panorama);
+            }
+        });
     }
     return container;
 }
