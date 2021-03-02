@@ -51,14 +51,29 @@ function decryptImage(url, decryptor, type = 'image/jpeg') {
         }
     });
 }
-function decryptImages(decryptor) {
-    return (entries, observer) => {
-        for (let entry of entries) {
-            let image = entry.target;
-            if (entry.isIntersecting && 'src' in image.dataset) {
-                decryptImage(image.dataset.src, decryptor);
+function decryptImages(decryptor, elements) {
+    if (elements) {
+        let observer = new IntersectionObserver(entries => {
+            for (let entry of entries) {
+                let image = entry.target;
+                if (entry.isIntersecting && 'src' in image.dataset) {
+                    decryptImage(image.dataset.src, decryptor);
+                }
             }
+        }, {rootMargin: '50px'});
+        for (let image of elements) {
+            observer.observe(image);
         }
+    }
+}
+function decryptPanoramas(decryptor, elements) {
+    if (elements) {
+        import("./panorama.js").then(module => {
+            let observer = new IntersectionObserver(module.getPanoramaCallback(decryptor));
+            for (let panorama of elements) {
+                observer.observe(panorama);
+            }
+        });
     }
 }
 async function decryptContent(base64key, url) {
@@ -66,19 +81,8 @@ async function decryptContent(base64key, url) {
     const content = await decryptor.toText((await fetchEncryptedData(url)).data);
     let container = document.createElement('article');
     container.innerHTML = content;
-    let imgObserver = new IntersectionObserver(decryptImages(decryptor), {rootMargin: '50px'});
-    for (let image of container.querySelectorAll('.media img')) {
-        imgObserver.observe(image);
-    }
-    let panoramas = container.querySelectorAll('.media .panorama');
-    if (panoramas) {
-        import("./panorama.js").then(module => {
-            let panoObserver = new IntersectionObserver(module.getPanoramaCallback(decryptor));
-            for (let panorama of panoramas) {
-                panoObserver.observe(panorama);
-            }
-        });
-    }
+    decryptImages(decryptor, container.querySelectorAll('.media img'));
+    decryptPanoramas(decryptor, container.querySelectorAll('.media .panorama'));
     return container;
 }
 

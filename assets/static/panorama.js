@@ -17,7 +17,7 @@ function fillView(viewer) {
 }
 
 function getPanoramaCallback(decryptor) {
-    return async (entries, observer) => {
+    return async entries => {
         for (let entry of entries) {
             if (entry.isIntersecting && 'panorama' in entry.target.dataset) {
                 let blob = await fetchDecryptedObject(
