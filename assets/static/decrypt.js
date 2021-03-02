@@ -64,7 +64,7 @@ class Decryptor {
  * @param {string|URL} url - data to fetch, accepts any type the Fetch API supports
  * @return {EncryptedData}
  */
-async function fetchEncryptedData(url) {
+async function fetchData(url) {
     const response = await fetch(url);
     const buffer = await response.arrayBuffer();
     return {
@@ -81,7 +81,7 @@ async function fetchEncryptedData(url) {
  * @return {Promise<DOMString>} Promise that resolves to an object URL DOMString
  */
 async function fetchDecryptedObject(url, decryptor, type = 'image/jpeg') {
-    const source = await fetchEncryptedData(url);
+    const source = await fetchData(url);
     return await decryptor.toObjectURL(source.data, type);
 }
 /**
@@ -150,7 +150,7 @@ function decryptPanoramas(decryptor, elements) {
  */
 async function decryptContent(base64key, url) {
     let decryptor = await new Decryptor(base64key);
-    const content = await decryptor.toText((await fetchEncryptedData(url)).data);
+    const content = await decryptor.toText((await fetchData(url)).data);
     let container = document.createElement('article');
     container.innerHTML = content;
     decryptImages(decryptor, container.querySelectorAll('.media img'));
