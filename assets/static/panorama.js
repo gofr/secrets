@@ -3,6 +3,11 @@ import { fetchDecryptedObject } from "./decrypt.js";
 
 var viewer;
 
+/**
+ * Zoom in to fill the vertical range of the panorama's viewer
+ *
+ * @param {Viewer} viewer
+ */
 function fillView(viewer) {
     // If the vertical range of the panorama does not fill the view,
     // zoom in to fill the height (to at most minFov).
@@ -16,6 +21,12 @@ function fillView(viewer) {
     }
 }
 
+/**
+ * Return IntersectionObserver callback to fetch, decrypt and load panoramas
+ *
+ * @param {Decryptor} decryptor
+ * @return {IntersectionObserverCallback}
+ */
 function getPanoramaCallback(decryptor) {
     return async entries => {
         for (let entry of entries) {
@@ -39,6 +50,8 @@ function getPanoramaCallback(decryptor) {
                     viewer.getPlugin(VisibleRangePlugin);
                     fillView(viewer);
                 });
+                // Only load the first panorama that has become visible and has
+                // not already been loaded.
                 break;
             }
         }
