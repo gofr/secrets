@@ -85,8 +85,7 @@ class Blog:
 
     def copy_assets(self, output_dir, asset_dir):
         # TODO: Do something less hacky. And allow output dir to exist?
-        result = subprocess.run(["npm", "run", "build"], cwd=asset_dir)
-        result.check_returncode()
+        subprocess.run(["npm", "run", "build"], cwd=asset_dir, check=True)
         shutil.copytree(os.path.join(asset_dir, "dist"), output_dir)
         shutil.copytree(
             os.path.join(asset_dir, "static"), output_dir, dirs_exist_ok=True)
