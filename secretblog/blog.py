@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 
 import commonmark
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -51,8 +52,7 @@ class Blog:
             f.write(config)
 
     def write(self, output_dir, asset_dir):
-        # TODO: Do something less hacky. And allow output dir to exist?
-        shutil.copytree(os.path.join(asset_dir, "static"), output_dir)
+        self.copy_assets(output_dir, asset_dir)
         for filename, post in self.posts.items():
             # TODO: What do I do with posts that are listed in the config but
             # don't have any corresponding file?
@@ -82,6 +82,14 @@ class Blog:
             # Secondly, since image files are stored with new random names, this
             # will leave behind now unused files from previous rounds.
             post.publish(os.path.join(output_dir, post_dir), asset_dir, key)
+
+    def copy_assets(self, output_dir, asset_dir):
+        # TODO: Do something less hacky. And allow output dir to exist?
+        result = subprocess.run(["npm", "run", "build"], cwd=asset_dir)
+        result.check_returncode()
+        shutil.copytree(os.path.join(asset_dir, "dist"), output_dir)
+        shutil.copytree(
+            os.path.join(asset_dir, "static"), output_dir, dirs_exist_ok=True)
 
 
 # TODO: unittest this class.
@@ -209,7 +217,6 @@ class Post:
         output_dir = os.path.normpath(output_dir)
         os.makedirs(output_dir, exist_ok=True)
         encrypted_images = {}
-        has_panorama = False
         copied_sections = copy.deepcopy(self._sections)
         for section in copied_sections:
             if isinstance(section, dict) and "image" in section:
@@ -221,7 +228,6 @@ class Post:
                     encrypt(image_data, key, os.path.join(output_dir, img_name))
                     section["image"] = img_name
                     section["is_panorama"] = is_panorama
-                    has_panorama = has_panorama or is_panorama
                 else:
                     section = encrypted_images[abs_path]
             elif isinstance(section, str):
@@ -231,5 +237,5 @@ class Post:
         encrypt(content.encode(), key, os.path.join(output_dir, "content"))
         post_template = env.get_template("post.html")
         with open(os.path.join(output_dir, "index.html"), "w") as index_file:
-            post = post_template.render(title=self.title, has_panorama=has_panorama)
+            post = post_template.render(title=self.title)
             index_file.write(post)

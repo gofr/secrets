@@ -1,5 +1,12 @@
-import { Viewer, VisibleRangePlugin } from "./photo-sphere-viewer.js";
+// These imports, particularly the non-JS resources, are written for webpack,
+// not JavaScript. They are parsed by webpack to manage dependencies and generate
+// combined, minified files, with the JS "transpiled" down to ES5, using
+// webpack.config.js as the configuration file.
+import { Viewer } from "photo-sphere-viewer";
+import * as VisibleRangePlugin from "photo-sphere-viewer/dist/plugins/visible-range";
 import { fetchDecryptedObject } from "./decrypt.js";
+
+import "photo-sphere-viewer/dist/photo-sphere-viewer.css";
 
 var viewer;
 

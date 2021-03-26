@@ -59,11 +59,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--asset-dir", default="assets",
         help="""\
-            path to directory containing public assets. This should include two
-            sub-directories: templates/ and static/. The templates/ directory
-            contains Jinja files used to generate the content. The static/
-            directory contains JS, CSS etc. files that are needed to display the
-            site and is copied to the output directory unchanged.""")
+            path to directory containing public assets. This should include at
+            least three sub-directories: src/, static/ and templates/. The src/
+            directory contains resources that will be processed by webpack
+            to generate minified JS that is then copied to the output directory.
+            The static/ directory contains other resources that are needed to
+            display the site. These are copied to the output directory unchanged.
+            The templates/ directory contains Jinja files used to generate the content.
+            """)
 
     args = parser.parse_args()
     publish(args.input_dir, args.output_dir, args.asset_dir)

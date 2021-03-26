@@ -1,3 +1,6 @@
 __pycache__
 .vscode
 *.code-workspace
+dist
+node_modules
+venv
