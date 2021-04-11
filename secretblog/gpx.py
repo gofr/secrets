@@ -1,3 +1,4 @@
+import collections
 import itertools
 import math
 
@@ -5,9 +6,12 @@ import gpxpy
 import gpxpy.parser
 
 
+Tile = collections.namedtuple('Tile', ["zoom", "x", "y"])
+
+
 # Based on https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Python
 def point2tile(point, zoom):
-    """Return the (`zoom`, x, y) tuple for GPXTrackPoint `point`.
+    """Return a Tile(`zoom`, x, y) namedtuple for GPXTrackPoint `point`.
 
     Find the Web Mercator tile coordinates for a latitude/longitude.
 
@@ -19,7 +23,7 @@ def point2tile(point, zoom):
     n = 2**zoom
     x = int((point.longitude + 180) / 360 * n) % n
     y = int((1 - math.asinh(math.tan(lat_rad)) / math.pi) / 2 * n)
-    return (zoom, x, y)
+    return Tile(zoom, x, y)
 
 
 def _neighbors(coord, size, expand, wrap):
@@ -45,10 +49,12 @@ def _neighbors(coord, size, expand, wrap):
 
 def tile2neighborhood(tile, expand):
     """Return a set with `tile` and all tiles up to `expand` distance away."""
-    zoom, x, y = tile
-    n = 2**zoom
-    return set(itertools.product(
-        [zoom], _neighbors(x, n, expand, wrap=True), _neighbors(y, n, expand, wrap=False)))
+    n = 2**tile.zoom
+    return set(map(lambda t: Tile(*t), itertools.product(
+        [tile.zoom],
+        _neighbors(tile.x, n, expand, wrap=True),
+        _neighbors(tile.y, n, expand, wrap=False)
+    )))
 
 
 class GPX(gpxpy.gpx.GPX):
