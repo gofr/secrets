@@ -35,8 +35,8 @@ def _neighbors(coord, size, expand, wrap):
     False, don't extend beyond the ends.
 
     E.g.
-    neighbors(5, 7, True, 2) returns [3, 4, 5, 6, 0].
-    neighbors(1, 7, False, 2) returns [0, 1, 2, 3].
+    neighbors(5, 7, 2, True) returns [3, 4, 5, 6, 0].
+    neighbors(1, 7, 2, False) returns [0, 1, 2, 3].
     """
     neighborhood = list(range(max(0, coord - expand), min(size, coord + expand + 1)))
     if wrap:
