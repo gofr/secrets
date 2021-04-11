@@ -31,19 +31,26 @@ def _neighbors(coord, size, expand, wrap):
 
     `size` is the total amount of numbers available, from 0 to `size` - 1.
     When the neighborhood extends outside of that range, if `wrap` is True,
-    wrap around and continue expanding the neighborhood there. If `wrap` is
-    False, don't extend beyond the ends.
+    continue expanding the neighborhood at the other end. If `wrap` is False,
+    don't extend beyond the ends.
+
+    The list will not contain duplicates when the expansion is big enough to
+    cause wrapped ends to overlap.
 
     E.g.
     neighbors(5, 7, 2, True) returns [3, 4, 5, 6, 0].
     neighbors(1, 7, 2, False) returns [0, 1, 2, 3].
     """
-    neighborhood = list(range(max(0, coord - expand), min(size, coord + expand + 1)))
+    lower_limit = coord - expand
+    upper_limit = coord + expand + 1
+    neighborhood = list(range(max(0, lower_limit), min(size, upper_limit)))
     if wrap:
-        if coord - expand < 0:
-            neighborhood = list(range((coord - expand) % size, size)) + neighborhood
-        if coord + expand >= size:
-            neighborhood.extend(range(0, (coord + expand + 1) % size))
+        first = neighborhood[0]
+        last = neighborhood[-1]
+        if lower_limit < 0:
+            neighborhood = list(range(max(last + 1, lower_limit % size), size)) + neighborhood
+        if upper_limit > size:
+            neighborhood.extend(range(0, min(first, upper_limit % size)))
     return neighborhood
 
 
