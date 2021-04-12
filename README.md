@@ -52,7 +52,3 @@ Run the help command:
     ```bash
     python3 -m unittest discover -s tests
     ```
-
-## Licenses
-
-This software is released under the MIT license. See `LICENSE.txt`.
