@@ -65,12 +65,12 @@ def tile2neighborhood(tile, expand):
 
 
 class GPX(gpxpy.gpx.GPX):
-    def get_map_tiles(self, zoom, expand=2):
+    def get_map_tiles(self, zoom, expand=None):
         """Return set of Web Mercator projection map tiles that cover all tracks.
 
-        Find all the tiles at `zoom` level, plus all tiles up to `expand`
-        around it that are needed to cover all the tracks.
-        Each tile is a (zoom, x, y) tuple.
+        Find all tiles at `zoom` level needed to cover all tracks, plus
+        optionally all tiles up to `expand` distance away from it (horizontally
+        and/or vertically). Each tile is a (zoom, x, y) namedtuple.
         """
         center_tiles = set(point2tile(p, zoom) for p in self.walk(only_points=True))
         if expand:
