@@ -1,4 +1,3 @@
-import collections
 import itertools
 import math
 
@@ -6,12 +5,24 @@ import gpxpy
 import gpxpy.parser
 
 
-Tile = collections.namedtuple('Tile', ["zoom", "x", "y"])
+class Tile:
+    __slots__ = ["zoom", "x", "y"]
+
+    def __init__(self, zoom, x, y):
+        self.zoom = zoom
+        self.x = x
+        self.y = y
+
+    def __eq__(self, other):
+        return self.zoom == other.zoom and self.x == other.x and self.y == other.y
+
+    def __hash__(self):
+        return hash((self.zoom, self.x, self.y))
 
 
 # Based on https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Python
 def point2tile(point, zoom):
-    """Return a Tile(`zoom`, x, y) namedtuple for GPXTrackPoint `point`.
+    """Return a Tile(`zoom`, x, y) for GPXTrackPoint `point`.
 
     Find the Web Mercator tile coordinates for a latitude/longitude.
 
@@ -66,11 +77,11 @@ def tile2neighborhood(tile, expand):
 
 class GPX(gpxpy.gpx.GPX):
     def get_map_tiles(self, zoom, expand=None):
-        """Return set of Web Mercator projection map tiles that cover all tracks.
+        """Return set of Web Mercator projection map Tile objects to cover all tracks.
 
         Find all tiles at `zoom` level needed to cover all tracks, plus
         optionally all tiles up to `expand` distance away from it (horizontally
-        and/or vertically). Each tile is a (zoom, x, y) namedtuple.
+        and/or vertically).
         """
         center_tiles = set(point2tile(p, zoom) for p in self.walk(only_points=True))
         if expand:
