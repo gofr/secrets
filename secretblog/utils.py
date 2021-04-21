@@ -80,7 +80,7 @@ def decode_encryption_key(base64key):
             return key
         else:
             raise ValueError(f"{prefix} Key must be 128 bit")
-    except binascii.Error as e:
+    except (AttributeError, binascii.Error) as e:
         raise ValueError(f"{prefix} {e}") from None
 
 
