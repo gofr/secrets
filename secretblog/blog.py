@@ -8,8 +8,8 @@ import subprocess
 import commonmark
 
 from secretblog.utils import (
-    Cipher, HTMLRenderer, JSONConfigDecoder, JSONConfigEncoder, find_in_file,
-    get_image_data, get_random_file_name
+    Cipher, HTMLRenderer, JSONConfigDecoder, JSONConfigEncoder, find_in_file, get_image_data,
+    get_random_file_name
 )
 
 
