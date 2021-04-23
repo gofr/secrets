@@ -1,6 +1,7 @@
 import base64
 import binascii
 import io
+import json
 import os
 import re
 
@@ -68,28 +69,79 @@ def get_random_file_name():
     return base64.b32encode(os.urandom(10)).decode().rstrip("=").lower()
 
 
-def decode_encryption_key(base64key):
-    prefix = "Invalid base64-encoded encryption key:"
-    try:
-        # Ignore padding. JavaScript's atob() doesn't need it, it looks ugly in
-        # URLs and is not always included when e.g. apps turn the copied URL
-        # into a clickable link. Too long padding validates.
-        base64key = base64key.rstrip("=") + "=="
-        key = base64.b64decode(base64key, validate=True)
-        if len(key) == 16:
-            return key
+class JSONConfigDecoder(json.JSONDecoder):
+    def __init__(self, **kwargs):
+        kwargs["object_hook"] = self._object_hook
+        super().__init__(**kwargs)
+
+    def _object_hook(self, o):
+        if "key" in o:
+            o["key"] = Cipher(o["key"])
+        return o
+
+    def decode(self, s):
+        o = super().decode(s)
+        o.setdefault("posts", {})
+        return o
+
+
+class JSONConfigEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Cipher):
+            return str(o)
         else:
-            raise ValueError(f"{prefix} Key must be 128 bit")
-    except (AttributeError, binascii.Error) as e:
-        raise ValueError(f"{prefix} {e}") from None
+            return super().default(o)
 
 
-def encrypt(data, key, output_file):
-    """Write `data` bytes encrypted with 128-bit AES-GCM using `key` to `output_file`."""
-    aesgcm = AESGCM(key)
-    nonce = os.urandom(12)  # 96 random bits
-    with open(output_file, "wb") as output_object:
-        output_object.write(nonce + aesgcm.encrypt(nonce, data, None))
+class Cipher:
+    """128-bit AES-GCM encryption cipher"""
+    def __init__(self, key=None):
+        bits = 128
+        prefix = "Invalid encryption key:"
+        if key is None:
+            self.key = AESGCM.generate_key(bit_length=bits)
+        else:
+            try:
+                # Ignore padding. JavaScript's atob() doesn't need it, it looks ugly in
+                # URLs and is not always included when e.g. apps turn the copied URL
+                # into a clickable link. Too long padding validates.
+                key = key.rstrip("=") + "=="
+                key = base64.b64decode(key, validate=True)
+            except TypeError:
+                # .rstrip() failed. The key is probably bytes-like. Use it directly.
+                pass
+            except (AttributeError, binascii.Error) as e:
+                raise ValueError(f"{prefix} {e}") from None
+            if len(key) == bits // 8:
+                self.key = key
+            else:
+                raise ValueError(f"{prefix} Key must be {bits} bits")
+        self.cipher = AESGCM(self.key)
+
+    def __str__(self):
+        """Return the base64-encoded encryption key."""
+        return base64.b64encode(self.key).decode().rstrip("=")
+
+    def encrypt(self, data, output_file):
+        """Encrypt and write `data` bytes to `output_file`."""
+        nonce = os.urandom(12)  # 96 random bits
+        with open(output_file, "wb") as f:
+            f.write(nonce + self.cipher.encrypt(nonce, data, None))
+
+
+def find_in_file(path, needle):
+    """Return True if bytes `needle` are in binary file `path`."""
+    # All possible partial matches at the end of a read chunk:
+    ends = tuple(needle[0:-i] for i in range(1, len(needle)))
+    with open(path, "rb") as f:
+        previous = None
+        while data := f.read(128 * 1024):
+            if previous:
+                data = b"".join([previous, data])
+            if needle in data:
+                return True
+            previous = data[-len(needle):] if data.endswith(ends) else None
+        return False
 
 
 def get_panorama_data(image):
@@ -106,17 +158,12 @@ def get_panorama_data(image):
 
 
 def get_image_data(image_path, max_size=1920):
-    """Return a tuple of (is panorama, image data bytes) for a JPEG image.
+    """Return image data bytes as an 80% quality, progressive JPEG.
 
     Raise a TypeError if `image_path` does not point to a JPEG.
 
     Resize the image down to fit in a `max_size` square if needed. Don't resize
-    the image if it contains GPano XMP data.
-
-    Return a tuple consisting of:
-    * a Boolean indicating whether the image has panoramic data,
-    * bytes data of the image re-saved as an 80% quality, progressive JPEG
-      with all metadata dropped, except for minimal GPano data.
+    the image if it contains GPano XMP metadata. Don't save any other metadata.
     """
     image = Image.open(image_path)
     if image.format != "JPEG":
@@ -127,6 +174,6 @@ def get_image_data(image_path, max_size=1920):
     tmp = io.BytesIO()
     try:
         image.save(tmp, format="JPEG", quality=80, progressive=True, exif=panorama)
-        return (bool(panorama), tmp.getvalue())
+        return tmp.getvalue()
     finally:
         tmp.close()

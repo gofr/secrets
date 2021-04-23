@@ -7,8 +7,8 @@ from secretblog.blog import Blog
 
 
 def publish(input_dir, output_dir, asset_dir):
-    blog = Blog(input_dir)
-    blog.write(output_dir, asset_dir)
+    blog = Blog(input_dir, output_dir, asset_dir)
+    blog.write()
 
 
 if __name__ == "__main__":
@@ -21,15 +21,15 @@ if __name__ == "__main__":
         description=textwrap.dedent("""\
         Create a secret, encrypted blog
 
-        This tool parses all the .md files in the specified input directory
-        according to the format described in content-format.md. It then renders
-        each .md file as a basic HTML file in a randomly-named subfolder inside
-        the specified output directory, with the post text and images encrypted.
+        This tool treats each sub-directory inside the specified input directory
+        as a blog post. The contents of each sub-directory are read according to
+        content-format.md and its contents are encrypted and saved to a
+        randomly-named subfolder inside the specified output directory.
 
         A file called secrets.json is created (or updated) inside the input
-        directory that maps the original .md filename to the name of its
-        output folder and the encryption key that was used. Each folder is
-        encrypted with a different key. All content in one folder uses the same
+        directory that maps the original sub-directory name to the name of its
+        output directory and the encryption key that was used. Each post is
+        encrypted with a different key. All content of one post uses the same
         key but a different IV.
 
         The resulting output can be hosted anywhere that supports static content
@@ -40,9 +40,11 @@ if __name__ == "__main__":
         very secure for at least two reasons:
         * Anyone you share a link with will have the encryption key and can
           decrypt the content you shared with them. They might accidentally or
-          deliberately share that link with others.
-        * This method is not host-proof. It would be possible for your host to
-          acquire the encryption key even if it isn't normally sent to them.
+          deliberately share that link with others. For example, it may be
+          exposed in their browser history.
+        * This method is not host-proof. For example, it would be possible for
+          a malicious host to inject JavaScript that retrieves the encryption
+          key even if it isn't normally sent to them.
 
         The decryption happens on the client side using the Web Crypto API:
         https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API

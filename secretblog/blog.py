@@ -1,17 +1,15 @@
-import base64
-import copy
+from abc import ABC, abstractmethod
+import collections
 import json
 import os
-import re
 import shutil
 import subprocess
 
 import commonmark
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from secretblog.utils import (
-    HTMLRenderer, decode_encryption_key, encrypt, get_image_data, get_random_file_name
+    Cipher, HTMLRenderer, JSONConfigDecoder, JSONConfigEncoder, find_in_file,
+    get_image_data, get_random_file_name
 )
 
 
@@ -19,29 +17,32 @@ from secretblog.utils import (
 class Blog:
     CONFIG_NAME = "secrets.json"  # Name of file in the input_dir
 
-    def __init__(self, input_dir):
+    def __init__(self, input_dir, output_dir, asset_dir):
         self.input_dir = input_dir
-        self.config = None
-        self.load_config()
+        self.output_dir = output_dir
+        self.asset_dir = asset_dir
+        self.config = self.load_config()
         posts = {}
-        for filename in os.listdir(input_dir):
-            if filename.endswith(".md"):
-                posts[filename] = Post.from_file(os.path.join(input_dir, filename))
+        for entry in os.scandir(input_dir):
+            if entry.is_dir():
+                posts[entry.name] = Post(self, entry.path)
         self.posts = posts
 
     def load_config(self):
         try:
+            config = {"posts": {}}
             with open(os.path.join(self.input_dir, self.CONFIG_NAME)) as f:
-                self.config = json.load(f)
+                config.update(json.load(f, cls=JSONConfigDecoder))
         except FileNotFoundError:
-            self.config = {}
+            pass
+        return config
 
     def write_config(self):
         # NOTE: It's quite important not to lose the config since it holds
         # encryption keys. This is reasonably safe now, but not thread-safe.
         config_file = os.path.join(self.input_dir, self.CONFIG_NAME)
         # Dump to string to find errors early and not end up with a corrupt file:
-        config = json.dumps(self.config, indent=4)
+        config = json.dumps(self.config, cls=JSONConfigEncoder, indent=4)
         try:
             # Move the old config out of the way, replacing the old backup.
             os.replace(config_file, config_file + ".bak")
@@ -51,190 +52,195 @@ class Blog:
         with open(config_file, "x") as f:
             f.write(config)
 
-    def write(self, output_dir, asset_dir):
-        self.copy_assets(output_dir, asset_dir)
-        for filename, post in self.posts.items():
-            # TODO: What do I do with posts that are listed in the config but
-            # don't have any corresponding file?
-            post_config = self.config.setdefault(filename, {})
-            # TODO: What if someone wants to publish a blog in two different
-            # places with different dirs/keys? Should the config go in the
-            # output_dir instead? But it should definitely not be made public!
-            if "dir" in post_config:
-                post_dir = post_config["dir"]
-            else:
-                post_dir = get_random_file_name()
-            if "key" in post_config:
-                key = decode_encryption_key(post_config["key"])
-            else:
-                key = AESGCM.generate_key(bit_length=128)
-            # Update the config before writing the encrypted files. Otherwise
-            # I could end up with encrypted content I don't have a key for.
-            # NOTE: I always write the config even if it didn't change.
-            # Is this less error prone?
-            self.config[filename].update(
-                dir=post_dir, key=base64.b64encode(key).decode().rstrip("="))
-            self.write_config()
+    def write(self):
+        self.copy_assets()
+        # Update the config before writing the encrypted files. Otherwise
+        # I could end up with encrypted content I don't have a key for.
+        self.write_config()
+        for post in self.posts.values():
             # NOTE: I re-encrypt the content without looking if maybe the output
             # already existed. Re-encrypting may be unnecessary but is hard
-            # to avoid since it's hard to determine if any of the content or
-            # templates changed, especially with my output being encrypted.
+            # to avoid since it's hard to determine if any of the content
+            # changed, especially with my output being encrypted.
             # Secondly, since image files are stored with new random names, this
             # will leave behind now unused files from previous rounds.
-            post.publish(os.path.join(output_dir, post_dir), asset_dir, key)
+            post.render()
 
-    def copy_assets(self, output_dir, asset_dir):
+    def copy_assets(self):
         # TODO: Do something less hacky. And allow output dir to exist?
-        subprocess.run(["npm", "run", "build"], cwd=asset_dir, check=True)
-        shutil.copytree(os.path.join(asset_dir, "dist"), output_dir)
+        subprocess.run(["npm", "run", "build"], cwd=self.asset_dir, check=True)
+        shutil.copytree(os.path.join(self.asset_dir, "dist"), self.output_dir)
         shutil.copytree(
-            os.path.join(asset_dir, "static"), output_dir, dirs_exist_ok=True)
+            os.path.join(self.asset_dir, "static"), self.output_dir, dirs_exist_ok=True)
 
 
 # TODO: unittest this class.
+# NOTE: I can't create posts programmatically now. Content is always read from files.
+# Is that a problem?
 class Post:
-    _key_pattern = re.compile(r"[a-z0-9_]+")
-    _metadata_pattern = re.compile(
-        fr"^(?:(?P<key>{_key_pattern.pattern}): (?P<value>.+)|# .*||(?P<error>.*))$",
-        re.MULTILINE)
-
-    # TODO: Require a post to be associated with a Blog? In that case I can set
-    # global options on the blog that get used by posts.
-    def __init__(self, content=None, title=None):
-        self.location = None
-        self.title = title
-        self._sections = []
-        if content:
-            self.load(content)
-
-    @classmethod
-    def from_file(cls, file_path):
-        """Return a new Post from the content in the given `file_path`."""
-        with open(file_path, "rt") as f:
-            text = f.read()
-        post = cls(text)
-        post.location = os.path.dirname(file_path)
-        return post
-
-    def load(self, content, override_title=False):
-        """Parse string `content` and load it into the Post object.
-
-        If `override_title` is `True` and the metadata in the `content` string
-        contains a post title, override the existing title.
-        """
-        sections = re.split(r"\n\n---\n", content, flags=re.MULTILINE)
-
-        metadata = {}
-        if sections[0].startswith("---\n"):
-            # Parse the first section, without the leading "---\n":
-            metadata = self.parse_metadata(sections.pop(0)[4:])
-        for section in sections:
-            self.add_section(section)
-        title = metadata.get("title")
-        if title is not None and override_title:
-            self.title = title
-
-    def add_section(self, content):
-        """Parse the `content` string and append a single section to the post.
-
-        The string is added as a media section if the first line matches a
-        key-value pair. Whitespace-only content is not added.
-        """
-        match = re.match(self._metadata_pattern, content)
-        if match and match.group("key"):
-            self._sections.append(self.parse_metadata(content))
-        elif content.strip():
-            self._sections.append(content)
-
-    @classmethod
-    def parse_metadata(cls, content):
-        """Parse key-value string and return dict."""
-        data = {}
-        for match in re.finditer(cls._metadata_pattern, content):
-            key = match.group("key")
-            error = match.group("error")
-            if key is not None:
-                if data.get(key):
-                    raise ValueError(f'Duplicate "{key}" key name in line:\n{match.group(0)}')
-                else:
-                    data[key] = match.group("value")
-            elif error:
-                raise ValueError(f"Invalid key-value data in line:\n{match.group(0)}")
-        return data
-
-    @classmethod
-    def dump_metadata(cls, metadata):
-        """Return metadata dumped to string in expected content input format."""
-        data = []
-        for key, value in metadata.items():
-            # This match avoids invalid key strings but also raises an exception
-            # if the key is not a string, avoiding potential clashes caused by
-            # keys of different types stringifying to the same value.
-            if re.fullmatch(cls._key_pattern, key):
-                data.append(f"{key}: {value}")
+    def __init__(self, blog, path):
+        self.blog = blog
+        self.path = path
+        self.config = blog.config["posts"].setdefault(os.path.basename(path), {})
+        self.config.setdefault("key", Cipher())
+        self.config.setdefault("dir", get_random_file_name())
+        content = {}
+        for entry in os.scandir(path):
+            if not entry.is_file():
+                continue
+            root, ext = os.path.splitext(entry.name)
+            lower_root, lower_ext = os.path.splitext(entry.name.lower())
+            if lower_ext not in PostComponent.REGISTERED_TYPES:
+                print(f"Unrecognized file type ({ext}) ignored: {entry.path}")
+                continue
+            item = PostSection(self, entry.path)
+            sort_key = (lower_root, root)
+            if sort_key in content:
+                content[sort_key].add(item)
             else:
-                raise ValueError(
-                    f'Invalid metadata key: "{key}".\n'
-                    f'Keys must match regular expression "{cls._key_pattern.pattern}"')
-        return "\n".join(data)
+                content[sort_key] = item
+        self.content = [v for k, v in sorted(content.items())]
 
-    @classmethod
-    def render_commonmark(cls, content):
-        """Parse CommonMark and return rendered HTML."""
-        parser = commonmark.Parser()
-        renderer = HTMLRenderer()
-        return renderer.render(parser.parse(content))
-
-    def dump(self):
-        """Dump the post back to a mixed CommonMark string."""
-        dumped_sections = []
-        if self.title:
-            dumped_sections.append(f"---\ntitle: {self.title}")
-        for section in self._sections:
-            if isinstance(section, dict):
-                dumped_sections.append(self.dump_metadata(section))
-            else:
-                dumped_sections.append(section.strip())
-        return "\n\n---\n".join(dumped_sections)
-
-    # TODO: Move encryption elsewhere?
-    def publish(self, output_dir, asset_dir, key):
-        """Write blog post to encrypted files in `output_dir`.
-
-        Render the content using templates from `{asset_dir}/templates`.
-        Use `key` bytes as the encryption key.
-        `output_dir` will be created if it doesn't exist yet.
-        """
-        env = Environment(
-            loader=FileSystemLoader(os.path.join(asset_dir, "templates")),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            autoescape=select_autoescape()
-        )
+    def render(self):
         # Normalize path, since the documentation for makedirs says:
         # "makedirs() will become confused if the path elements to create include pardir"
-        output_dir = os.path.normpath(output_dir)
+        output_dir = os.path.normpath(os.path.join(self.blog.output_dir, self.config["dir"]))
         os.makedirs(output_dir, exist_ok=True)
-        encrypted_images = {}
-        copied_sections = copy.deepcopy(self._sections)
-        for section in copied_sections:
-            if isinstance(section, dict) and "image" in section:
-                abs_path = os.path.abspath(os.path.join(self.location, section["image"]))
-                if abs_path not in encrypted_images:
-                    img_name = get_random_file_name()
-                    encrypted_images[abs_path] = section
-                    is_panorama, image_data = get_image_data(abs_path)
-                    encrypt(image_data, key, os.path.join(output_dir, img_name))
-                    section["image"] = img_name
-                    section["is_panorama"] = is_panorama
-                else:
-                    section = encrypted_images[abs_path]
-            elif isinstance(section, str):
-                section = self.render_commonmark(section)
-        content_template = env.get_template("content.html")
-        content = content_template.render(content=copied_sections)
-        encrypt(content.encode(), key, os.path.join(output_dir, "content"))
-        post_template = env.get_template("post.html")
-        with open(os.path.join(output_dir, "index.html"), "w") as index_file:
-            post = post_template.render(title=self.title)
-            index_file.write(post)
+        content = "".join([section.render() for section in self.content])
+        self.config["key"].encrypt(content.encode(), os.path.join(output_dir, "content"))
+        # TODO: I don't have any variables in this "template" anymore. Unless I
+        # bring back the title or so, I don't need Jinja, and I don't need this
+        # to be a template. I shouldn't even need this to exist separately for
+        # each post. I could just have a single index.html in the root which
+        # takes the post dir as a search or hash argument.
+        # If I'm going to bring back a title, it would be better to have it
+        # encrypted too anyway, which means it's not going to be hard-coded in
+        # the HTML but injected from JavaScript.
+        shutil.copy(
+            os.path.join(self.blog.asset_dir, "templates", "post.html"),
+            os.path.join(output_dir, "index.html")
+        )
+
+
+class PostSection:
+    __slots__ = ["post", "media", "text"]
+
+    def __init__(self, post, item1, item2=None, /):
+        self.post = post
+        component1 = PostComponent.load(post, item1)
+        component2 = None
+        if item2 is not None:
+            component2 = PostComponent.load(post, item2)
+            if component2 and component1.is_text() == component2.is_text():
+                raise ValueError(
+                    f'"{item2}" must have a different content type (text or media) than "{item1}"')
+        if component1.is_text():
+            self.text = component1
+            self.media = component2
+        else:
+            self.text = component2
+            self.media = component1
+
+    def add(self, other):
+        if (self.media and not other.media) and (other.text and not self.text):
+            self.text = other.text
+        elif (self.text and not other.text) and (other.media and not self.media):
+            self.media = other.media
+        else:
+            raise ValueError("Too many items to combine into a single section")
+
+    def render(self):
+        media = self.media.render() if self.media else ""
+        text = self.text.render() if self.text else ""
+        return f"<section>{media}{text}</section>"
+
+
+class PostComponent(ABC):
+    EXTENSIONS = None
+    REGISTERED_TYPES = collections.defaultdict(list)
+
+    def __init__(self, post, path):
+        self.post = post
+        self.path = path
+
+    @classmethod
+    def register(cls, class_):
+        for ext in class_.EXTENSIONS:
+            cls.REGISTERED_TYPES[ext].append(class_)
+
+    @classmethod
+    def load(cls, post, path):
+        ext = os.path.splitext(path)[1].lower()
+        if ext in cls.REGISTERED_TYPES:
+            for class_ in reversed(cls.REGISTERED_TYPES[ext]):
+                try:
+                    return class_(post, path)
+                except TypeError:
+                    pass
+            else:
+                raise ValueError(f"No registered handlers could handle {path}.")
+        else:
+            raise TypeError(f"There is no registered handler for {ext} files.")
+
+    def is_text(self):
+        return isinstance(self, TextComponent)
+
+    @abstractmethod
+    def render(self):
+        pass
+
+
+class TextComponent(PostComponent):
+    pass
+
+
+class MediaComponent(PostComponent):
+    pass
+
+
+class CommonMarkComponent(TextComponent):
+    EXTENSIONS = ('.md',)
+
+    def render(self):
+        with open(self.path, "rt") as f:
+            content = f.read()
+        parser = commonmark.Parser()
+        renderer = HTMLRenderer()
+        html = renderer.render(parser.parse(content))
+        return f'<div class="content">{html}</div>'
+
+
+class ImageComponent(MediaComponent):
+    EXTENSIONS = ('.jpeg', '.jpg')
+
+    def save_image(self):
+        name = get_random_file_name()
+        image_data = get_image_data(self.path)
+        output = os.path.join(self.post.blog.output_dir, self.post.config["dir"], name)
+        self.post.config["key"].encrypt(image_data, output)
+        return name
+
+    def render(self):
+        img = self.save_image()
+        return f'<div class="media"><img data-src="{img}"></div>'
+
+
+# TODO: Don't use a separate class for this, but let ImageComponent
+# return different HTML if the image contained GPano metadata?
+class PanoramaComponent(ImageComponent):
+    def __init__(self, post, path):
+        # Needle size affects search speed. Search for a somewhat long string
+        # that must exist in photo sphere XMP metadata:
+        if find_in_file(path, b"GPano:CroppedAreaImageHeightPixels"):
+            return super().__init__(post, path)
+        else:
+            raise TypeError("Image is not a panorama. No GPano XMP tags found.")
+
+    def render(self):
+        img = self.save_image()
+        return f'<div class="media"><div class="panorama" data-panorama="{img}"></div></div>'
+
+
+PostComponent.register(CommonMarkComponent)
+PostComponent.register(ImageComponent)
+PostComponent.register(PanoramaComponent)
