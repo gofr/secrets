@@ -29,61 +29,42 @@ class Decryptor {
             this.key, data.subarray(12));
     }
     /**
-     * Decrypt encrypted text to a string
+     * Fetch data from the specified URL and decrypt to an ArrayBuffer
      *
-     * @param {Uint8Array} data
-     * @return {Promise<string>}
+     * @param {string|URL} url
+     * @return {Promise<ArrayBuffer>}
      */
-    async toText(data) {
-        let decoder = new TextDecoder();
-        return decoder.decode(await this.decrypt(data));
+    async fetch(url) {
+        const response = await fetch(url);
+        const buffer = await response.arrayBuffer();
+        const data = new Uint8Array(buffer);
+        return await this.decrypt(data);
     }
     /**
-     * Decrypt encrypted binary data to an object URL
+     * Fetch encrypted binary data at the specified URL and decrypt to an object URL
      *
-     * @param {Uint8Array} data
-     * @param {string} type - the decrypted object's MIME type
+     * @param {string|URL} url
+     * @param {string} [type=image/jpeg] - MIME type to use for the returned object URL
      * @return {Promise<DOMString>} Promise that resolves to an object URL DOMString
      */
-    async toObjectURL(data, type) {
-        const decrypted = await this.decrypt(data);
+    async fetchObject(url, type = 'image/jpeg') {
+        const decrypted = await this.fetch(url);
         const blob = new Blob([decrypted], {"type": type});
         return URL.createObjectURL(blob);
     }
+    /**
+     * Fetch encrypted text data at the specified URL and decrypt to a string
+     *
+     * @param {string|URL} url
+     * @return {Promise<string>}
+     */
+    async fetchText(url) {
+        const data = await this.fetch(url);
+        let decoder = new TextDecoder();
+        return decoder.decode(data);
+    }
 }
 
-/**
- * @typedef {Object} EncryptedData
- * @property {Uint8Array} data
- * @property {string} type - MIME type
- */
-
-/**
- * Fetch data from a URL and return it and its MIME type
- *
- * @param {string|URL} url - data to fetch, accepts any type the Fetch API supports
- * @return {EncryptedData}
- */
-async function fetchData(url) {
-    const response = await fetch(url);
-    const buffer = await response.arrayBuffer();
-    return {
-        'data': new Uint8Array(buffer),
-        'type': response.headers.get('Content-Type')
-    };
-}
-/**
- * Fetch data at the specified URL and decrypt it to an object URL
- *
- * @param {string|URL} url
- * @param {Decryptor} decryptor
- * @param {string} [type=image/jpeg] - MIME type to use for the returned object URL
- * @return {Promise<DOMString>} Promise that resolves to an object URL DOMString
- */
-async function fetchDecryptedObject(url, decryptor, type = 'image/jpeg') {
-    const source = await fetchData(url);
-    return await decryptor.toObjectURL(source.data, type);
-}
 /**
  * Decrypt requested image and load it into the DOM where it is used
  *
@@ -93,7 +74,7 @@ async function fetchDecryptedObject(url, decryptor, type = 'image/jpeg') {
  * @return {undefined}
  */
 function decryptImage(url, decryptor, type = 'image/jpeg') {
-    fetchDecryptedObject(url, decryptor, type).then(object => {
+    decryptor.fetchObject(url, type).then(object => {
         // Update all the images using the same URL:
         for (let image of document.querySelectorAll(`img[data-src="${url}"]`)) {
             delete image.dataset.src;
@@ -150,7 +131,7 @@ function decryptPanoramas(decryptor, elements) {
  */
 async function decryptContent(base64key, url) {
     let decryptor = await new Decryptor(base64key);
-    const content = await decryptor.toText((await fetchData(url)).data);
+    const content = await decryptor.fetchText(url);
     let container = document.createElement('article');
     container.innerHTML = content;
     decryptImages(decryptor, container.querySelectorAll('.media img'));
@@ -158,4 +139,4 @@ async function decryptContent(base64key, url) {
     return container;
 }
 
-export { Decryptor, decryptContent, fetchDecryptedObject };
+export { decryptContent };

@@ -4,7 +4,6 @@
 // webpack.config.js as the configuration file.
 import { Viewer } from "photo-sphere-viewer";
 import * as VisibleRangePlugin from "photo-sphere-viewer/dist/plugins/visible-range";
-import { fetchDecryptedObject } from "./decrypt.js";
 
 import "photo-sphere-viewer/dist/photo-sphere-viewer.css";
 
@@ -38,8 +37,7 @@ function getPanoramaCallback(decryptor) {
     return async entries => {
         for (let entry of entries) {
             if (entry.isIntersecting && 'panorama' in entry.target.dataset) {
-                let blob = await fetchDecryptedObject(
-                    entry.target.dataset.panorama, decryptor);
+                let blob = await decryptor.fetchObject(entry.target.dataset.panorama);
                 delete entry.target.dataset.panorama;
 
                 viewer = new Viewer({
