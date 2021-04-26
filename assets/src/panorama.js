@@ -7,8 +7,6 @@ import * as VisibleRangePlugin from "photo-sphere-viewer/dist/plugins/visible-ra
 
 import "photo-sphere-viewer/dist/photo-sphere-viewer.css";
 
-var viewer;
-
 /**
  * Zoom in to fill the vertical range of the panorama's viewer
  *
@@ -26,35 +24,42 @@ function fillView(viewer) {
         }
     }
 }
-
+/**
+ * Create a Photo Sphere Viewer in the container element for the url image
+ *
+ * @param {Node} container
+ * @param {DOMString} url
+ */
+ function createPanorama(container, url) {
+    let viewer = new Viewer({
+        "container": container,
+        "panorama": url,
+        "navbar": false,
+        "mousewheel": false,
+        "touchmoveTwoFingers": true,
+        "plugins": [
+            [VisibleRangePlugin, {usePanoData: true}]
+        ],
+    });
+    viewer.on('ready', function() {
+        URL.revokeObjectURL(url);
+        viewer.getPlugin(VisibleRangePlugin);
+        fillView(viewer);
+    });
+}
 /**
  * Return IntersectionObserver callback to fetch, decrypt and load panoramas
  *
  * @param {Decryptor} decryptor
  * @return {IntersectionObserverCallback}
  */
-function getPanoramaCallback(decryptor) {
+function getCallback(decryptor) {
     return async entries => {
         for (let entry of entries) {
             if (entry.isIntersecting && 'panorama' in entry.target.dataset) {
                 let blob = await decryptor.fetchObject(entry.target.dataset.panorama);
                 delete entry.target.dataset.panorama;
-
-                viewer = new Viewer({
-                    "container": entry.target,
-                    "panorama": blob,
-                    "navbar": false,
-                    "mousewheel": false,
-                    "touchmoveTwoFingers": true,
-                    "plugins": [
-                        [VisibleRangePlugin, {usePanoData: true}]
-                    ],
-                });
-                viewer.on('ready', function() {
-                    URL.revokeObjectURL(blob);
-                    viewer.getPlugin(VisibleRangePlugin);
-                    fillView(viewer);
-                });
+                createPanorama(entry.target, blob);
                 // Only load the first panorama that has become visible and has
                 // not already been loaded.
                 break;
@@ -63,4 +68,4 @@ function getPanoramaCallback(decryptor) {
     }
 }
 
-export { getPanoramaCallback };
+export { getCallback };

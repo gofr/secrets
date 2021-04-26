@@ -115,7 +115,7 @@ function decryptImages(decryptor, elements) {
 function decryptPanoramas(decryptor, elements) {
     if (elements.length) {
         import("./panorama.js").then(module => {
-            let observer = new IntersectionObserver(module.getPanoramaCallback(decryptor));
+            let observer = new IntersectionObserver(module.getCallback(decryptor));
             for (let panorama of elements) {
                 observer.observe(panorama);
             }
