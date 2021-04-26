@@ -123,6 +123,22 @@ function decryptPanoramas(decryptor, elements) {
     }
 }
 /**
+ * Add maps to IntersectionObserver to be decrypted and displayed later
+ *
+ * @param {Decryptor} decryptor
+ * @param {NodeList} elements
+ */
+function decryptMaps(decryptor, elements) {
+    if (elements.length) {
+        import("./map.js").then(async module => {
+            let observer = new IntersectionObserver(module.getCallback(decryptor));
+            for (let map of elements) {
+                observer.observe(map);
+            }
+        });
+    }
+}
+/**
  * Fetch and decrypt content and load it into an HTML element
  *
  * @param {string} base64key
@@ -136,6 +152,7 @@ async function decryptContent(base64key, url) {
     container.innerHTML = content;
     decryptImages(decryptor, container.querySelectorAll('.media img'));
     decryptPanoramas(decryptor, container.querySelectorAll('.media .panorama'));
+    decryptMaps(decryptor, container.querySelectorAll('.media .map'));
     return container;
 }
 

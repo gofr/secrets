@@ -19,6 +19,11 @@ article {
         position: sticky;
         top: 0;
     }
+        article .media .map {
+            height: 100vmin;
+            margin: 0 auto 10em;
+            width: min(100vmin, 100%);
+        }
         article .media .panorama {
             height: 100vh;
             margin-bottom: 10em;

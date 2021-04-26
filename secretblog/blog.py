@@ -6,7 +6,9 @@ import shutil
 import subprocess
 
 import commonmark
+from geojson import MultiLineString
 
+from secretblog.gpx import GPXParser
 from secretblog.utils import (
     Cipher, HTMLRenderer, JSONConfigDecoder, JSONConfigEncoder, find_in_file, get_image_data,
     get_random_file_name
@@ -239,6 +241,34 @@ class PanoramaComponent(ImageComponent):
         return f'<div class="media"><div class="panorama" data-panorama="{img}"></div></div>'
 
 
+# TODO: OOP-ify the JavaScript side too, so that's as easily extendable.
+class MapComponent(MediaComponent):
+    EXTENSIONS = ('.gpx',)
+
+    def get_geojson(self):
+        """Parse GPX `self.path` and return GeoJSON string."""
+        with open(self.path) as f:
+            gpx = GPXParser(f).parse()
+        return str(MultiLineString(gpx.get_polylines())).encode()
+
+    # TODO: If the GPX has waypoints that reference images which exist in the
+    # Post object, include the waypoints in the GeoJSON and mark them on the map.
+    # Clicking on one scrolls to the image. And the image gets an overlay icon
+    # you can click to go back to the map, with the waypoint highlighted.
+    # TODO: Don't use a live OpenStreetMap. Download all the tiles and store
+    # them locally, encrypted and the name hashed so the location is obscured.
+    def save(self):
+        name = get_random_file_name()
+        output = os.path.join(self.post.blog.output_dir, self.post.config["dir"], name)
+        self.post.config["key"].encrypt(self.get_geojson(), output)
+        return name
+
+    def render(self):
+        geojson = self.save()
+        return f'<div class="media"><div class="map" data-geojson="{geojson}"></div></div>'
+
+
 PostComponent.register(CommonMarkComponent)
 PostComponent.register(ImageComponent)
 PostComponent.register(PanoramaComponent)
+PostComponent.register(MapComponent)
