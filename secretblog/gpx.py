@@ -95,12 +95,12 @@ class GPX(gpxpy.gpx.GPX):
     def get_polylines(self):
         """Return a list of polylines, one for each track segment.
 
-        Each polyline is a list of (latitude, longitude) tuples.
+        Each polyline is a list of (longitude, latitude) tuples.
         """
         lines = []
         for track in self.tracks:
             for segment in track.segments:
-                lines.append([(p.latitude, p.longitude) for p in segment.points])
+                lines.append([(p.longitude, p.latitude) for p in segment.points])
         return lines
 
     # This overrides a built-in which is slower and buggy.
