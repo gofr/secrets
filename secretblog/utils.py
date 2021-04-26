@@ -64,11 +64,6 @@ class HTMLRenderer(commonmark.HtmlRenderer):
             super().html_block(node, entering)
 
 
-def get_random_file_name():
-    # Base32 to be compatible with case-insensitive file systems:
-    return base64.b32encode(os.urandom(10)).decode().rstrip("=").lower()
-
-
 class JSONConfigDecoder(json.JSONDecoder):
     def __init__(self, **kwargs):
         kwargs["object_hook"] = self._object_hook
@@ -127,6 +122,11 @@ class Cipher:
         nonce = os.urandom(12)  # 96 random bits
         with open(output_file, "wb") as f:
             f.write(nonce + self.cipher.encrypt(nonce, data, None))
+
+
+def get_random_file_name():
+    # Base32 to be compatible with case-insensitive file systems:
+    return base64.b32encode(os.urandom(10)).decode().rstrip("=").lower()
 
 
 def find_in_file(path, needle):

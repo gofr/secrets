@@ -13,7 +13,6 @@ from secretblog.utils import (
 )
 
 
-# TODO: unittest this class.
 class Blog:
     CONFIG_NAME = "secrets.json"  # Name of file in the input_dir
 
@@ -74,7 +73,6 @@ class Blog:
             os.path.join(self.asset_dir, "static"), self.output_dir, dirs_exist_ok=True)
 
 
-# TODO: unittest this class.
 # NOTE: I can't create posts programmatically now. Content is always read from files.
 # Is that a problem?
 class Post:
@@ -213,7 +211,7 @@ class CommonMarkComponent(TextComponent):
 class ImageComponent(MediaComponent):
     EXTENSIONS = ('.jpeg', '.jpg')
 
-    def save_image(self):
+    def save(self):
         name = get_random_file_name()
         image_data = get_image_data(self.path)
         output = os.path.join(self.post.blog.output_dir, self.post.config["dir"], name)
@@ -221,7 +219,7 @@ class ImageComponent(MediaComponent):
         return name
 
     def render(self):
-        img = self.save_image()
+        img = self.save()
         return f'<div class="media"><img data-src="{img}"></div>'
 
 
@@ -237,7 +235,7 @@ class PanoramaComponent(ImageComponent):
             raise TypeError("Image is not a panorama. No GPano XMP tags found.")
 
     def render(self):
-        img = self.save_image()
+        img = self.save()
         return f'<div class="media"><div class="panorama" data-panorama="{img}"></div></div>'
 
 
