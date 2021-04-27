@@ -6,12 +6,13 @@ class Decryptor {
      * Create an object that can decrypt content using the specified key
      *
      * @constructor
-     * @param {string} base64key - 128-bit, base64-encoded encryption key
+     * @param {string} base64key - 256-bit, URL-safe base64-encoded encryption key
      * @return {Promise<Decryptor>}
      */
     constructor(base64key) {
         // https://stackoverflow.com/a/41106346
-        const byteKey = Uint8Array.from(atob(base64key), c => c.charCodeAt(0));
+        const byteKey = Uint8Array.from(
+            atob(base64key.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
         // This is a bit awkward: https://stackoverflow.com/a/50885340
         return (async () => {
             this.key = await crypto.subtle.importKey(

@@ -89,9 +89,9 @@ class JSONConfigEncoder(json.JSONEncoder):
 
 
 class Cipher:
-    """128-bit AES-GCM encryption cipher"""
+    """AES-GCM encryption cipher"""
     def __init__(self, key=None):
-        bits = 128
+        bits = 256
         prefix = "Invalid encryption key:"
         if key is None:
             self.key = AESGCM.generate_key(bit_length=bits)
@@ -101,7 +101,9 @@ class Cipher:
                 # URLs and is not always included when e.g. apps turn the copied URL
                 # into a clickable link. Too long padding validates.
                 key = key.rstrip("=") + "=="
-                key = base64.b64decode(key, validate=True)
+                # Use altchars arg instead of urlsafe_b64decode() because the
+                # latter doesn't take a validate arg.
+                key = base64.b64decode(key, altchars='-_', validate=True)
             except TypeError:
                 # .rstrip() failed. The key is probably bytes-like. Use it directly.
                 pass
@@ -115,7 +117,7 @@ class Cipher:
 
     def __str__(self):
         """Return the base64-encoded encryption key."""
-        return base64.b64encode(self.key).decode().rstrip("=")
+        return base64.urlsafe_b64encode(self.key).decode().rstrip("=")
 
     def encrypt(self, data, output_file):
         """Encrypt and write `data` bytes to `output_file`."""

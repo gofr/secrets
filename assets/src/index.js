@@ -1,6 +1,6 @@
 function isValidKey(key) {
     try {
-        return atob(key).length == 16;
+        return atob(key.replace(/-/g, '+').replace(/_/g, '/')).length == 32;
     } catch (e) {
         return false;
     }

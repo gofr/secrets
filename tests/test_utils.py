@@ -56,25 +56,25 @@ class TestHTMLRenderer(unittest.TestCase):
 
 class TestCipher(unittest.TestCase):
     def test_decode_key_too_few_bits(self):
-        with self.assertRaisesRegex(ValueError, "must be 128 bit"):
-            utils.Cipher("a" * math.ceil(96 / 6))
+        with self.assertRaisesRegex(ValueError, "must be 256 bit"):
+            utils.Cipher("a" * math.ceil(128 / 6))
 
     def test_decode_key_too_many_bits(self):
-        with self.assertRaisesRegex(ValueError, "must be 128 bit"):
-            utils.Cipher("a" * math.ceil(256 / 6))
+        with self.assertRaisesRegex(ValueError, "must be 256 bit"):
+            utils.Cipher("a" * math.ceil(512 / 6))
 
     def test_decode_valid_key(self):
-        decoded = utils.Cipher("a" * math.ceil(128 / 6)).key
+        decoded = utils.Cipher("a" * math.ceil(256 / 6)).key
         self.assertIsInstance(decoded, bytes)
-        self.assertEqual(len(decoded), 16)
+        self.assertEqual(len(decoded), 32)
 
     def test_decode_key_base64_decode_error(self):
-        with self.assertRaisesRegex(ValueError, "^Invalid") as ctx:
+        with self.assertRaisesRegex(ValueError, "Invalid base64-encoded string") as ctx:
             utils.Cipher("-invalid-")
         self.assertIsNone(ctx.exception.__cause__)
 
     def test_encryption(self):
-        key = b"a" * 16
+        key = b"a" * 32
         secret = b"test"
         with tempfile.NamedTemporaryFile("rb") as f:
             utils.Cipher(key).encrypt(secret, f.name)
@@ -83,7 +83,7 @@ class TestCipher(unittest.TestCase):
         self.assertEqual(aesgcm.decrypt(encrypted[0:12], encrypted[12:], None), secret)
 
     def test_stringification(self):
-        key = "A" * math.ceil(128 / 6)
+        key = "A" * math.ceil(256 / 6)
         self.assertEqual(str(utils.Cipher(key)), key)
 
 
@@ -102,11 +102,11 @@ class TestJSONConfig(unittest.TestCase):
             json.loads('{"key": "12345"}', cls=utils.JSONConfigDecoder)
 
     def test_decode_valid_key(self):
-        key = "a" * math.ceil(128 / 6)
+        key = "a" * math.ceil(256 / 6)
         config = json.loads(f'{{"key": "{key}"}}', cls=utils.JSONConfigDecoder)
         self.assertIsInstance(config["key"], utils.Cipher)
 
     def test_encode_key(self):
-        key = "A" * math.ceil(128 / 6)
+        key = "A" * math.ceil(256 / 6)
         config = json.dumps({"key": utils.Cipher(key)}, cls=utils.JSONConfigEncoder)
         self.assertEqual(config, f'{{"key": "{key}"}}')
