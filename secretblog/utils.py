@@ -167,9 +167,8 @@ def find_in_file(path, needle):
         return False
 
 
-# TODO: Add support for getting XMP data from GIF and WebP?
+# TODO: Add support for getting XMP data from GIF?
 # https://www.adobe.com/content/dam/acom/en/devnet/xmp/pdfs/XMPSDKReleasecc-2020/XMPSpecificationPart3.pdf
-# https://developers.google.com/speed/webp/docs/riff_container
 def get_panorama_data(image):
     """Return JPEG-formatted XMP data containing the `image` panorama metadata."""
     xmp_header = b"http://ns.adobe.com/xap/1.0/"
@@ -187,10 +186,10 @@ def get_panorama_data(image):
         for segment, content in image.applist:
             if segment == "APP1" and xmp_header in content and b"GPano" in content:
                 return re.sub(unnecessary_xml, b"", content)
-    # PNG
+    # PNG and WebP
     elif hasattr(image, "info"):
-        content = image.info.get("XML:com.adobe.xmp")
-        if content and "GPano" in content:
+        content = image.info.get("XML:com.adobe.xmp", "").encode() or image.info.get("xmp")
+        if content and b"GPano" in content:
             return b"\x00".join([xmp_header, re.sub(unnecessary_xml, b"", content.encode())])
     return b""
 
@@ -203,8 +202,8 @@ def get_image_data(image, max_size=1920):
     Resize the image down to fit in a `max_size` square if needed. Don't resize
     the image if it contains GPano XMP metadata. Don't save any other metadata.
     """
-    if image.format not in ("JPEG", "PNG"):
-        raise TypeError("Only JPEG and PNG images are supported")
+    if image.format not in ("JPEG", "PNG", "WEBP"):
+        raise TypeError("Only JPEG, PNG and WebP images are supported")
     panorama = get_panorama_data(image)
     if image.mode != "RGB":
         image = image.convert("RGB")

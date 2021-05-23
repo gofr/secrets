@@ -213,7 +213,7 @@ class CommonMarkComponent(TextComponent):
 
 
 class ImageComponent(MediaComponent):
-    EXTENSIONS = ('.jpeg', '.jpg', '.png')
+    EXTENSIONS = ('.jpeg', '.jpg', '.png', '.webp')
 
     def save(self):
         name = get_random_file_name()
