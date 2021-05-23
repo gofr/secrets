@@ -6,7 +6,9 @@ import os
 import re
 
 import commonmark
+from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
 class HTMLRenderer(commonmark.HtmlRenderer):
@@ -88,12 +90,16 @@ class JSONConfigEncoder(json.JSONEncoder):
 
 
 class Cipher:
-    """AES-GCM encryption cipher"""
+    """Encryption and hashing cipher using the provided base key."""
     def __init__(self, key=None):
         bits = 256
         prefix = "Invalid encryption key:"
+        crypt_kdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"files")
+        # WebCrypto uses block size rather than digest size by default.
+        # The block size of SHA256 is 512 bits (64 bytes). Use that here too.
+        hmac_kdf = HKDF(algorithm=hashes.SHA256(), length=64, salt=None, info=b"names")
         if key is None:
-            self.key = AESGCM.generate_key(bit_length=bits)
+            self.base = AESGCM.generate_key(bit_length=bits)
         else:
             try:
                 # Ignore padding. JavaScript's atob() doesn't need it, it looks ugly in
@@ -109,14 +115,16 @@ class Cipher:
             except (AttributeError, binascii.Error) as e:
                 raise ValueError(f"{prefix} {e}") from None
             if len(key) == bits // 8:
-                self.key = key
+                self.base = key
             else:
                 raise ValueError(f"{prefix} Key must be {bits} bits")
+        self.key = crypt_kdf.derive(self.base)
+        self.hmac_key = hmac_kdf.derive(self.base)
         self.cipher = AESGCM(self.key)
 
     def __str__(self):
-        """Return the base64-encoded encryption key."""
-        return base64.urlsafe_b64encode(self.key).decode().rstrip("=")
+        """Return the base64-encoded input key material."""
+        return base64.urlsafe_b64encode(self.base).decode().rstrip("=")
 
     def encrypt(self, data, output_file):
         """Encrypt and write `data` bytes to `output_file`."""
@@ -124,10 +132,24 @@ class Cipher:
         with open(output_file, "wb") as f:
             f.write(nonce + self.cipher.encrypt(nonce, data, None))
 
+    def hmac(self, data):
+        """Return HMAC for input data using a key derived from the base key."""
+        h = hmac.HMAC(self.hmac_key, hashes.SHA256())
+        h.update(data)
+        return h.finalize()
+
+
+def encode_to_base32(data):
+    """Return unpadded, lowercase, base32-encoded string of bytes `data`.
+
+    Useful for creating file names from random data that are also compatible
+    with case-insensitive file systems.
+    """
+    return base64.b32encode(data).decode().rstrip("=").lower()
+
 
 def get_random_file_name():
-    # Base32 to be compatible with case-insensitive file systems:
-    return base64.b32encode(os.urandom(10)).decode().rstrip("=").lower()
+    return encode_to_base32(os.urandom(10))
 
 
 def find_in_file(path, needle):

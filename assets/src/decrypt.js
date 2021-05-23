@@ -15,8 +15,11 @@ class Decryptor {
             atob(base64key.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
         // This is a bit awkward: https://stackoverflow.com/a/50885340
         return (async () => {
-            this.key = await crypto.subtle.importKey(
-                "raw", byteKey, "AES-GCM", false, ["decrypt"]);
+            this.base = await crypto.subtle.importKey("raw", byteKey, "HKDF", false, ["deriveKey"]);
+            const info = Uint8Array.from("files", c => c.charCodeAt(0));
+            this.key = await crypto.subtle.deriveKey(
+                {name: "HKDF", hash: "SHA-256", salt: new Uint8Array(), info: info},
+                this.base, {name: "AES-GCM", length: 256}, false, ["decrypt"]);
             return this;
         })();
     }
