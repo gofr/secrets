@@ -13,6 +13,7 @@
   },
   "homepage": "https://github.com/gofr/secrets#readme",
   "dependencies": {
+    "base32-encode": "^1.2.0",
     "leaflet": "^1.7.1",
     "photo-sphere-viewer": "^4.2.1"
   },

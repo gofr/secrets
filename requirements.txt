@@ -3,3 +3,4 @@ cryptography==3.4.7
 geojson==2.5.0
 gpxpy==1.4.2
 Pillow==8.1.2
+requests==2.25.1

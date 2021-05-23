@@ -1,14 +1,19 @@
+import io
 import itertools
 import math
 
 import gpxpy
 import gpxpy.parser
+from PIL import Image
+import requests
 
 
 class Tile:
     __slots__ = ["zoom", "x", "y"]
 
     def __init__(self, zoom, x, y):
+        if not (type(zoom) == type(x) == type(y) == int):
+            raise TypeError("Tile parameters must be integers")
         self.zoom = zoom
         self.x = x
         self.y = y
@@ -18,6 +23,30 @@ class Tile:
 
     def __hash__(self):
         return hash((self.zoom, self.x, self.y))
+
+    def __str__(self):
+        return f"{self.zoom}_{self.x}_{self.y}"
+
+
+class TileServer:
+    URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+    SUBDOMAINS = "abc"
+    # Be a bit stricter than the server's tile usage policy:
+    # https://operations.osmfoundation.org/policies/tiles/
+    _limit = 250
+
+    def fetch(self, tile):
+        if TileServer._limit <= 0:
+            raise PermissionError("Tile server usage limit exceeded")
+        subdomains = ""
+        if self.SUBDOMAINS:
+            # This is what Leaflet does to alternate requests between subdomains:
+            subdomains = self.SUBDOMAINS[abs(tile.x + tile.y) % len(self.SUBDOMAINS)]
+        url = self.URL.format(s=subdomains, x=tile.x, y=tile.y, z=tile.zoom)
+        response = requests.get(url)
+        response.raise_for_status()
+        TileServer._limit -= 1
+        return Image.open(io.BytesIO(response.content))
 
 
 # Based on https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Python
@@ -76,7 +105,7 @@ def tile2neighborhood(tile, expand):
 
 
 class GPX(gpxpy.gpx.GPX):
-    def get_map_tiles(self, zoom, expand=None):
+    def get_map_tiles(self, *, zoom, expand=None):
         """Return set of Web Mercator projection map Tile objects to cover all tracks.
 
         Find all tiles at `zoom` level needed to cover all tracks, plus

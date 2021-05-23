@@ -9,10 +9,10 @@ import commonmark
 from geojson import MultiLineString
 from PIL import Image
 
-from secretblog.gpx import GPXParser
+from secretblog.gpx import GPXParser, Tile, TileServer
 from secretblog.utils import (
-    Cipher, HTMLRenderer, JSONConfigDecoder, JSONConfigEncoder, find_in_file, get_image_data,
-    get_random_file_name
+    Cipher, HTMLRenderer, JSONConfigDecoder, JSONConfigEncoder, encode_to_base32, find_in_file,
+    get_image_data, get_random_file_name
 )
 
 
@@ -26,7 +26,8 @@ class Blog:
         self.config = self.load_config()
         posts = {}
         for entry in os.scandir(input_dir):
-            if entry.is_dir():
+            # Exclude hidden files:
+            if not entry.name.startswith(".") and entry.is_dir():
                 posts[entry.name] = Post(self, entry.path)
         self.posts = posts
 
@@ -247,21 +248,44 @@ class MapComponent(MediaComponent):
     EXTENSIONS = ('.gpx',)
 
     def get_geojson(self):
-        """Parse GPX `self.path` and return GeoJSON string."""
+        """Parse GPX `self.path` and return GeoJSON object."""
         with open(self.path) as f:
             gpx = GPXParser(f).parse()
-        return str(MultiLineString(gpx.get_polylines())).encode()
+        tiles = list(map(str, gpx.get_map_tiles(zoom=5, expand=1)))
+        tiles.extend(map(str, gpx.get_map_tiles(zoom=10, expand=1)))
+        tiles.extend(map(str, gpx.get_map_tiles(zoom=14, expand=1)))
+        return MultiLineString(gpx.get_polylines(), tiles=tiles)
+
+    def save_tiles(self, geojson):
+        cache_dir = os.path.normpath(os.path.join(self.post.blog.input_dir, ".map_tile_cache"))
+        os.makedirs(cache_dir, exist_ok=True)
+        output_dir = os.path.normpath(
+            os.path.join(self.post.blog.output_dir, self.post.config["dir"], "tiles"))
+        os.makedirs(output_dir, exist_ok=True)
+
+        tile_server = TileServer()
+        for t in geojson.tiles:
+            tile = Tile(*list(map(int, t.split("_"))))
+            cache_tile_path = os.path.join(cache_dir, f"{t}.png")
+            if os.path.isfile(cache_tile_path):
+                image = Image.open(cache_tile_path)
+            else:
+                image = tile_server.fetch(tile)
+                image.save(cache_tile_path)
+            hmac = self.post.config["key"].hmac(str(tile).encode())
+            output = os.path.join(output_dir, encode_to_base32(hmac))
+            self.post.config["key"].encrypt(get_image_data(image), output)
 
     # TODO: If the GPX has waypoints that reference images which exist in the
     # Post object, include the waypoints in the GeoJSON and mark them on the map.
     # Clicking on one scrolls to the image. And the image gets an overlay icon
     # you can click to go back to the map, with the waypoint highlighted.
-    # TODO: Don't use a live OpenStreetMap. Download all the tiles and store
-    # them locally, encrypted and the name hashed so the location is obscured.
     def save(self):
+        geojson = self.get_geojson()
+        self.save_tiles(geojson)
         name = get_random_file_name()
         output = os.path.join(self.post.blog.output_dir, self.post.config["dir"], name)
-        self.post.config["key"].encrypt(self.get_geojson(), output)
+        self.post.config["key"].encrypt(str(geojson).encode(), output)
         return name
 
     def render(self):
