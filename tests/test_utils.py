@@ -4,7 +4,9 @@ import tempfile
 import unittest
 
 import commonmark
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 import secretblog.utils as utils
 
@@ -79,7 +81,8 @@ class TestCipher(unittest.TestCase):
         with tempfile.NamedTemporaryFile("rb") as f:
             utils.Cipher(key).encrypt(secret, f.name)
             encrypted = f.read()
-        aesgcm = AESGCM(key)
+        kdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"files")
+        aesgcm = AESGCM(kdf.derive(key))
         self.assertEqual(aesgcm.decrypt(encrypted[0:12], encrypted[12:], None), secret)
 
     def test_stringification(self):
