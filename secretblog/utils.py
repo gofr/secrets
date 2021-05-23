@@ -7,7 +7,6 @@ import re
 
 import commonmark
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from PIL import Image
 
 
 class HTMLRenderer(commonmark.HtmlRenderer):
@@ -146,31 +145,47 @@ def find_in_file(path, needle):
         return False
 
 
+# TODO: Add support for getting XMP data from GIF and WebP?
+# https://www.adobe.com/content/dam/acom/en/devnet/xmp/pdfs/XMPSDKReleasecc-2020/XMPSpecificationPart3.pdf
+# https://developers.google.com/speed/webp/docs/riff_container
 def get_panorama_data(image):
-    for segment, content in image.applist:
-        if segment == "APP1" and b"http://ns.adobe.com/xap/1.0/" in content:
-            # Strip out most of the attributes the panorama viewer doesn't need:
-            unnecessary_attributes = re.compile(rb"""
-                \s*
-                (?:xmlns:TPano|TPano:|GPano:(?!Cropped|Full|PoseHeadingDegrees|ProjectionType))
-                \w*=".*?"
-                """, re.VERBOSE)
-            return re.sub(unnecessary_attributes, b"", content)
+    """Return JPEG-formatted XMP data containing the `image` panorama metadata."""
+    xmp_header = b"http://ns.adobe.com/xap/1.0/"
+    unnecessary_xml = re.compile(rb"""
+        \s+
+        # Match all attributes that aren't related to panorama data
+        (?:xmlns:(?!(?:x|rdf|GPano)\b)|(?!xmlns:|GPano:)[\w:]+|GPano:(?!Cropped|Full|PoseHeadingDegrees|ProjectionType))
+        \w*=".*?"
+        |
+        # And match all tags that aren't related to panorama data
+        \s*<(?!/?x:|/?rdf:(?:RDF|Description))[^>]*>\s*
+        """, re.VERBOSE)
+    # JPEG
+    if hasattr(image, "applist"):
+        for segment, content in image.applist:
+            if segment == "APP1" and xmp_header in content and b"GPano" in content:
+                return re.sub(unnecessary_xml, b"", content)
+    # PNG
+    elif hasattr(image, "info"):
+        content = image.info.get("XML:com.adobe.xmp")
+        if content and "GPano" in content:
+            return b"\x00".join([xmp_header, re.sub(unnecessary_xml, b"", content.encode())])
     return b""
 
 
-def get_image_data(image_path, max_size=1920):
+def get_image_data(image, max_size=1920):
     """Return image data bytes as an 80% quality, progressive JPEG.
 
-    Raise a TypeError if `image_path` does not point to a JPEG.
+    Raise a TypeError if `image` is not a JPEG or PNG Image object.
 
     Resize the image down to fit in a `max_size` square if needed. Don't resize
     the image if it contains GPano XMP metadata. Don't save any other metadata.
     """
-    image = Image.open(image_path)
-    if image.format != "JPEG":
-        raise TypeError("Only JPEG images are supported")
+    if image.format not in ("JPEG", "PNG"):
+        raise TypeError("Only JPEG and PNG images are supported")
     panorama = get_panorama_data(image)
+    if image.mode != "RGB":
+        image = image.convert("RGB")
     if not panorama:
         image.thumbnail((max_size, max_size))
     tmp = io.BytesIO()

@@ -7,6 +7,7 @@ import subprocess
 
 import commonmark
 from geojson import MultiLineString
+from PIL import Image
 
 from secretblog.gpx import GPXParser
 from secretblog.utils import (
@@ -211,11 +212,11 @@ class CommonMarkComponent(TextComponent):
 
 
 class ImageComponent(MediaComponent):
-    EXTENSIONS = ('.jpeg', '.jpg')
+    EXTENSIONS = ('.jpeg', '.jpg', '.png')
 
     def save(self):
         name = get_random_file_name()
-        image_data = get_image_data(self.path)
+        image_data = get_image_data(Image.open(self.path))
         output = os.path.join(self.post.blog.output_dir, self.post.config["dir"], name)
         self.post.config["key"].encrypt(image_data, output)
         return name
