@@ -1,6 +1,9 @@
 import base32Encode from "base32-encode";
-import * as Leaflet from "leaflet/dist/leaflet";
-import "leaflet/dist/leaflet.css";  // for Webpack
+import * as Leaflet from "leaflet";
+import { GestureHandling } from "leaflet-gesture-handling";
+// CSS handled by Webpack:
+import "leaflet/dist/leaflet.css";
+import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
 
 var CryptoTileLayer = Leaflet.TileLayer.extend({
     options: {
@@ -55,7 +58,9 @@ async function cryptoTileLayer(options) {
 async function createMap(element, geojson, decryptor) {
     let feature = Leaflet.geoJSON(geojson);
     let bounds = feature.getBounds();
+    Leaflet.Map.addInitHook("addHandler", "gestureHandling", GestureHandling);
     let map = Leaflet.map(element, {
+        gestureHandling: true,
         zoomSnap: 5,
         zoomDelta: 5,
         maxBounds: bounds.pad(.05),
