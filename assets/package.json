@@ -8,7 +8,7 @@
     "type": "git",
     "url": "git+https://github.com/gofr/secrets.git"
   },
-  "license": "MIT",
+  "license": "Hippocratic-2.1",
   "bugs": {
     "url": "https://github.com/gofr/secrets/issues"
   },
