@@ -190,7 +190,7 @@ def get_panorama_data(image):
     elif hasattr(image, "info"):
         content = image.info.get("XML:com.adobe.xmp", "").encode() or image.info.get("xmp")
         if content and b"GPano" in content:
-            return b"\x00".join([xmp_header, re.sub(unnecessary_xml, b"", content.encode())])
+            return b"\x00".join([xmp_header, re.sub(unnecessary_xml, b"", content)])
     return b""
 
 
