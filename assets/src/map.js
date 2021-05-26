@@ -58,7 +58,7 @@ async function createMap(element, geojson, decryptor) {
     let map = Leaflet.map(element, {
         zoomSnap: 5,
         zoomDelta: 5,
-        maxBounds: bounds,
+        maxBounds: bounds.pad(.05),
         maxBoundsViscosity: 1,
     }).setView(bounds.getCenter(), 10);
     Leaflet.control.scale().addTo(map);
