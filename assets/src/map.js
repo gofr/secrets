@@ -79,7 +79,7 @@ async function createMap(element, geojson, decryptor) {
  * @param {Decryptor} decryptor
  * @return {IntersectionObserverCallback}
  */
- function getCallback(decryptor) {
+function getCallback(decryptor) {
     return async entries => {
         for (let entry of entries) {
             if (entry.isIntersecting && 'geojson' in entry.target.dataset) {
