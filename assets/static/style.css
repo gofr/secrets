@@ -44,6 +44,12 @@ article {
         padding: 1em;
         position: relative;
     }
+        article .content a:link {
+            color: cyan;
+        }
+        article .content a:visited {
+            color: teal;
+        }
         article .content p:first-of-type::first-letter {
             float: left;
             font-size: 2.6em;
