@@ -209,6 +209,35 @@ def get_image_data(image, max_size=1920):
     # I'm throwing away the EXIF later, so apply the orientation:
     ImageOps.exif_transpose(image, in_place=True)
     panorama = get_panorama_data(image)
+    if panorama:
+        # https://developers.google.com/streetview/spherical-metadata#cylindrical_projections
+        # PhotoSphereViewer doesn't support the cylindrical projection and I'm
+        # too lazy (for now) to create a PR for a CylindricalAdapter, so hack
+        # the XMP to make it kind of work as equirectangular. This should work as long as the
+        # cylinder is a relatively narrow strip around the horizon.
+        if b"cylindrical" in panorama:
+            panorama = panorama.replace(b"cylindrical", b"equirectangular")
+            full_width_match = re.search(rb"""(?<=GPano:FullPanoWidthPixels=")\d+""", panorama)
+            cropped_height_match = re.search(
+                rb"""(?<=GPano:CroppedAreaImageHeightPixels=")\d+""",
+                panorama
+            )
+            if cropped_height_match and full_width_match:
+                full_width = int(full_width_match.group())
+                full_height = full_width / 2
+                # Cylindrical doesn't have a height because it's infinite.
+                panorama = re.sub(
+                    rb"""(?=GPano:FullPanoWidthPixels)""",
+                    bytes(f"""GPano:FullPanoHeightPixels="{full_height}" """, 'utf-8'),
+                    panorama
+                )
+                # Ignore the original vertical offset. Always center it around the horizon.
+                cropped_top = int(round(full_height - int(cropped_height_match.group())) / 2.0)
+                panorama = re.sub(
+                    rb"""(?<=CroppedAreaTopPixels=")\d+""",
+                    bytes(str(cropped_top), 'utf-8'),
+                    panorama
+                )
     if image.mode != "RGB":
         image = image.convert("RGB")
     if not panorama:
