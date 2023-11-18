@@ -9,6 +9,7 @@ import commonmark
 from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from PIL import ImageOps
 
 
 class HTMLRenderer(commonmark.HtmlRenderer):
@@ -204,6 +205,9 @@ def get_image_data(image, max_size=1920):
     """
     if image.format not in ("JPEG", "PNG", "WEBP"):
         raise TypeError("Only JPEG, PNG and WebP images are supported")
+
+    # I'm throwing away the EXIF later, so apply the orientation:
+    ImageOps.exif_transpose(image, in_place=True)
     panorama = get_panorama_data(image)
     if image.mode != "RGB":
         image = image.convert("RGB")
