@@ -2,10 +2,10 @@
 // not JavaScript. They are parsed by webpack to manage dependencies and generate
 // combined, minified files, with the JS "transpiled" down to ES5, using
 // webpack.config.js as the configuration file.
-import { Viewer } from "photo-sphere-viewer";
-import * as VisibleRangePlugin from "photo-sphere-viewer/dist/plugins/visible-range";
+import { Viewer } from "@photo-sphere-viewer/core";
+import { VisibleRangePlugin } from "@photo-sphere-viewer/visible-range-plugin";
 
-import "photo-sphere-viewer/dist/photo-sphere-viewer.css";
+import "@photo-sphere-viewer/core/index.css";
 
 /**
  * Zoom in to fill the vertical range of the panorama's viewer
@@ -16,10 +16,10 @@ function fillView(viewer) {
     // If the vertical range of the panorama does not fill the view,
     // zoom in to fill the height (to at most minFov).
     const visibleRangePlugin = viewer.getPlugin(VisibleRangePlugin);
-    const latitude = visibleRangePlugin.config.latitudeRange;
-    if (latitude !== null) {
-        const view = Math.floor(180 * Math.abs(latitude[1] - latitude[0]) / Math.PI);
-        if (view < viewer.prop.vFov) {
+    const vertical = visibleRangePlugin.config.verticalRange;
+    if (vertical) {
+        const view = Math.floor(180 * Math.abs(vertical[1] - vertical[0]) / Math.PI);
+        if (view < viewer.state.vFov) {
             viewer.zoom(viewer.dataHelper.fovToZoomLevel(view));
         }
     }
@@ -41,7 +41,7 @@ function fillView(viewer) {
             [VisibleRangePlugin, {usePanoData: true}]
         ],
     });
-    viewer.on('ready', function() {
+    viewer.addEventListener('ready', () => {
         URL.revokeObjectURL(url);
         viewer.getPlugin(VisibleRangePlugin);
         fillView(viewer);
